@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Process‑Logger — Shell</title>
+  <link rel="stylesheet" href="/_shell.css">
+  <style>
+    #app-header { display:flex; gap:12px; align-items:center; }
+    #loader { display:none; margin-left:8px; font-size:0.9rem; color:var(--text-muted); }
+    .content-hidden { visibility:hidden; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="side-nav" aria-label="Seitennavigation">
+      <div class="brand">Process‑Logger</div>
+
+      <ul class="nav-list" id="navList">
+        <li><a href="index.html" data-path="index.html">Übersicht</a></li>
+        <li><a href="system-settings.html" data-path="system-settings.html">System‑Einstellungen</a></li>
+        <li><a href="logpoints-config.html" data-path="logpoints-config.html">Variablen / Logpoints</a></li>
+        <li><a href="opcua-config.html" data-path="opcua-config.html">OPC UA Verbindungen</a></li>
+        <li><a href="ntp.html" data-path="ntp.html">NTP Konfiguration</a></li>
+      </ul>
+
+      <div class="nav-meta">
+        <div class="muted">Entwicklung</div>
+        <div style="margin-top:8px; font-weight:600">Timo Baumann</div>
+      </div>
+    </nav>
+
+    <main class="main-area">
+      <div id="app-header" style="align-items:center;">
+        <h1 id="pageTitle" style="margin:0; font-size:1.2rem">Übersicht</h1>
+        <div id="loader">Lade…</div>
+      </div>
+
+      <div id="app-content" class="content">
+        <div class="panel">
+          <h2>Willkommen</h2>
+          <p class="muted">Bitte wähle einen Menüpunkt links. Das System ist in Entwicklung — Änderungen können folgen.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/app-shell.js" defer></script>
+</body>
+</html>

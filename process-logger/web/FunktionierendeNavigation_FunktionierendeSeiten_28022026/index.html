@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Process‑Logger — Shell</title>
+  <link rel="stylesheet" href="/_shell.css">
+  <script src="/_nav-loader.js" defer></script>
+  <script src="/_theme-loader.js" defer></script>
+  <style>
+    #app-header { display:flex; gap:12px; align-items:center; }
+    #loader { display:none; margin-left:8px; font-size:0.9rem; color:var(--text-muted); }
+    .content-hidden { visibility:hidden; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav id="nav-placeholder" class="side-nav" aria-label="Seitennavigation"></nav>
+
+    <main class="main-area">
+      <div id="app-header" style="align-items:center;">
+        <h1 id="pageTitle" style="margin:0; font-size:1.2rem">Übersicht</h1>
+        <div id="loader">Lade…</div>
+      </div>
+
+      <div id="app-content" class="content">
+        <div class="panel">
+          <h2>Willkommen</h2>
+          <p class="muted">Bitte wähle einen Menüpunkt links. Das System ist in Entwicklung — Änderungen können folgen.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

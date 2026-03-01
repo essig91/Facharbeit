@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OPC UA Verbindungen</title>
+
+  <link rel="stylesheet" href="/_shell.css">
+  <script src="/_nav-loader.js" defer></script>
+  <script src="/_theme-loader.js" defer></script>
+
+  <style>
+    :root{
+      /* Site-wide configurable theme colors */
+      --accent: #2b6fb3;
+      --accent-contrast: #ffffff;
+      --row-h: 48px;
+      --id-col-w: 12rem;
+      --policy-col-w: 8rem;
+      --mode-col-w: 8rem;
+      --actions-col-w: 10rem;
+      --muted: #666;
+      --radius: 6px;
+    }
+
+    /* Use shell font by default */
+    body { font-family: var(--shell-font); color:#111; }
+    .opcua-page { max-width: 1000px; margin: 1.2rem auto; padding: 1rem; }
+    h1,h2 { margin: .4rem 0; }
+    .muted { color: var(--muted); font-size:0.95rem; margin-bottom:.6rem; }
+
+    .top-actions { display:flex; gap:.6rem; align-items:center; margin-bottom:.6rem; }
+    .top-actions .spacer { flex:1; }
+    .status-progress { font-size:0.9rem; color:var(--muted); margin-left:.4rem; }
+
+    .conn-table { width:100%; border-collapse: collapse; margin-top:.5rem; table-layout: fixed; font-size:0.95rem; }
+    .conn-table thead th { background: var(--accent); color: var(--accent-contrast); padding:8px; border:1px solid rgba(0,0,0,0.08); text-align:left; font-weight:600; }
+    .conn-table th, .conn-table td { padding:6px 10px; border:1px solid #e6e6e6; vertical-align:middle; box-sizing:border-box; }
+
+    .conn-table thead th { height: var(--row-h); line-height: var(--row-h); }
+    .conn-table tbody tr { height: var(--row-h); }
+    .conn-table tbody td { height: var(--row-h); line-height: var(--row-h); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background:#fff; }
+
+    .conn-table th.id-col, .conn-table td.id-col {
+      width: var(--id-col-w);
+      white-space: normal;
+      line-height: normal;
+      padding-top:8px; padding-bottom:8px;
+    }
+
+    .endpoint-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .status-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; vertical-align:middle; box-shadow:0 0 0 1px rgba(0,0,0,0.04) inset; }
+    .status-green { background:#28a745; }
+    .status-red { background:#d9534f; }
+    .status-unknown { background:#888; }
+
+    .conn-table th.policy-col, .conn-table td.policy-col { width: var(--policy-col-w); }
+    .conn-table th.mode-col, .conn-table td.mode-col { width: var(--mode-col-w); }
+    .conn-table th.actions-col, .conn-table td.actions-col { width: var(--actions-col-w); text-align:left; }
+
+    .icon-svg { width:18px; height:18px; vertical-align:middle; display:inline-block; }
+
+    .btn {
+      display:inline-block;
+      height: 34px;
+      padding: 0 10px;
+      border-radius:6px;
+      border:1px solid var(--accent);
+      background:transparent;
+      color:var(--accent);
+      cursor:pointer;
+      vertical-align:middle;
+      line-height:34px;
+      font-size:0.95rem;
+      box-sizing: border-box;
+    }
+    .btn:hover { background: rgba(43,111,179,0.06); }
+    .btn:active { background: rgba(43,111,179,0.12); }
+
+    .btn--primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+
+    .icon-btn {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:36px;
+      height:34px;
+      padding:0;
+      border-radius:6px;
+      border:1px solid var(--accent);
+      background:transparent;
+      color:var(--accent);
+      cursor:pointer;
+      box-sizing:border-box;
+    }
+    .icon-btn:hover { background: rgba(43,111,179,0.06); }
+
+    .actions { display:inline-flex; gap:.35rem; align-items:center; }
+
+    .form-panel { margin-top: 1rem; padding: .6rem; border:1px solid #e6e6e6; border-radius:6px; background:#fff; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 10px 18px;
+      align-items: center;
+      max-width: 100%;
+    }
+    .form-row { width:100%; }
+    .form-label { font-weight:600; font-size:0.95rem; color:#222; }
+    .form-input { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid #ccc; border-radius:4px; font-size:0.95rem; }
+    .form-controls { grid-column: 1 / -1; display:flex; gap:.5rem; align-items:center; margin-top:6px; }
+
+    @media (max-width:760px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .form-controls { grid-column: auto; }
+      .conn-table thead th, .conn-table tbody td { font-size:0.9rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav id="nav-placeholder" class="side-nav" aria-label="Seitennavigation"></nav>
+
+    <main class="main-area">
+      <div class="opcua-page">
+        <h1>OPC UA Verbindungs‑Konfiguration</h1>
+        <p class="muted">Erstelle, bearbeite und teste Verbindungen. Discovery zeigt Endpoints und Server‑Zertifikat.</p>
+
+        <div class="top-actions">
+          <div>
+            <button id="btnRefresh" class="btn" title="Aktualisieren und Status prüfen">Aktualisieren</button>
+            <span id="statusProgress" class="status-progress"></span>
+          </div>
+          <div class="spacer"></div>
+        </div>
+
+        <h2>Vorhandene Verbindungen</h2>
+        <div id="list">Lade...</div>
+
+        <h2 id="formTitle">Neue Verbindung anlegen</h2>
+        <div class="form-panel">
+          <form id="addForm" class="form-grid" autocomplete="off">
+            <input type="hidden" id="connId" />
+
+            <div class="form-row"><div class="form-label">Name</div></div>
+            <div class="form-row"><input id="name" class="form-input" type="text" placeholder="SPS KWS1" /></div>
+
+            <div class="form-row"><div class="form-label">Endpoint (opc.tcp URL)</div></div>
+            <div class="form-row"><input id="endpoint" class="form-input" type="text" placeholder="opc.tcp://192.168.0.50:4840" required /></div>
+
+            <div class="form-row"><div class="form-label">Security Policy</div></div>
+            <div class="form-row">
+              <select id="securityPolicy" class="form-input">
+                <option>None</option>
+                <option>Basic256Sha256</option>
+                <option>Basic256</option>
+                <option>Basic128Rsa15</option>
+              </select>
+            </div>
+
+            <div class="form-row"><div class="form-label">Security Mode</div></div>
+            <div class="form-row"><select id="securityMode" class="form-input"><option>None</option><option>Sign</option><option>SignAndEncrypt</option></select></div>
+
+            <div class="form-row"><div class="form-label">Authentication</div></div>
+            <div class="form-row"><select id="authType" class="form-input"><option value="anonymous">anonymous</option><option value="username">username</option></select></div>
+
+            <div id="authFields" style="display:none;">
+              <div class="form-row"><div class="form-label">Username</div></div>
+              <div class="form-row"><input id="authUser" class="form-input" type="text" /></div>
+              <div class="form-row"><div class="form-label">Password</div></div>
+              <div class="form-row"><input id="authPass" class="form-input" type="password" /></div>
+            </div>
+
+            <div class="form-controls">
+              <button type="submit" id="submitBtn" class="btn">Anlegen</button>
+              <button type="button" id="cancelEdit" class="btn" style="display:none;">Abbrechen</button>
+              <button type="button" id="discoverBtn" class="btn">Discover</button>
+            </div>
+          </form>
+        </div>
+
+        <h2>Discovery / Server‑Zertifikat</h2>
+        <div id="discoverResult">Noch keine Discovery.</div>
+
+        <h2>Test Ausgabe</h2>
+        <div id="testGlobalResult" class="muted">Kein Test durchgeführt.</div>
+      </div>
+    </main>
+  </div>
+
+<script>
+  const api = path => '/api/opcua' + path;
+
+  function escapeHtml(s){ if(s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  // Inline SVG icons used as standard
+  function svgIcon(type){
+    if (type === 'edit') {
+      return '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+    }
+    // delete/trash
+    return '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+  }
+
+  function createIconButtonSvg(type, title, onClick){
+    const btn = document.createElement('button');
+    btn.className = 'icon-btn';
+    btn.type = 'button';
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.innerHTML = svgIcon(type);
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  // Wiring
+  const btnRefresh = document.getElementById('btnRefresh');
+  const statusProgress = document.getElementById('statusProgress');
+
+  btnRefresh.addEventListener('click', async () => {
+    try {
+      btnRefresh.disabled = true;
+      const originalText = btnRefresh.textContent;
+      btnRefresh.textContent = 'Aktualisiere...';
+      statusProgress.innerText = '';
+      await loadList();
+      statusProgress.innerText = 'Statusprüfung...';
+      await checkAllStatuses({ concurrency: 3, timeoutMs: 4000 });
+      statusProgress.innerText = '';
+      btnRefresh.textContent = originalText;
+    } catch (e) {
+      console.error(e);
+      btnRefresh.textContent = 'Fehler';
+      setTimeout(()=>btnRefresh.textContent='Aktualisieren', 1200);
+    } finally {
+      btnRefresh.disabled = false;
+    }
+  });
+
+  document.getElementById('authType').addEventListener('change', ev => {
+    document.getElementById('authFields').style.display = ev.target.value === 'username' ? 'grid' : 'none';
+  });
+
+  document.getElementById('cancelEdit').addEventListener('click', resetForm);
+  document.getElementById('discoverBtn').addEventListener('click', async () => {
+    const endpoint = document.getElementById('endpoint').value;
+    if (!endpoint) { alert('Bitte Endpoint im Formular angeben.'); return; }
+    const el = document.getElementById('discoverResult'); el.innerText = 'Discover läuft...';
+    try {
+      const res = await fetch(api('/discover'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ endpoint }) });
+      const json = await res.json();
+      if (!res.ok) { el.innerText = 'Fehler: ' + (json.error || JSON.stringify(json)); return; }
+      let html = '<h3>Gefundene Endpoints</h3>';
+      json.endpoints.forEach((e, i) => {
+        const certShort = e.serverCertificate ? (e.serverCertificate.slice(0,200) + '...') : 'keins';
+        html += `<div style="border:1px solid #ccc;padding:.4rem;margin:.4rem 0;">
+            <b>${escapeHtml(e.endpointUrl)}</b><br>
+            Policy: ${escapeHtml(e.securityPolicyUri)} | Mode: ${escapeHtml(e.securityMode)}<br>
+            ServerCertificate (Base64, kurz): ${escapeHtml(certShort)}
+            <div style="margin-top:.4rem"><button data-cert-index="${i}" class="btn">Vertrauen</button></div>
+          </div>`;
+      });
+      el.innerHTML = html;
+      const trustButtons = el.querySelectorAll('[data-cert-index]');
+      trustButtons.forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const idx = Number(btn.getAttribute('data-cert-index'));
+          const cert = json.endpoints[idx] && json.endpoints[idx].serverCertificate;
+          if (!cert) { alert('Kein Zertifikat vorhanden'); return; }
+          if (!confirm('Zertifikat vertrauen?')) return;
+          try {
+            const r = await fetch(api('/trust'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ serverCertificateBase64: cert, name: `server-${Date.now()}.pem` }) });
+            const j = await r.json();
+            if (!r.ok) throw new Error(j.error || JSON.stringify(j));
+            alert('Zertifikat gespeichert unter: ' + (j.path || '(Pfad nicht angegeben)'));
+          } catch (err) { alert('Fehler beim Trust: ' + err.toString()); }
+        });
+      });
+    } catch(err){ el.innerText = 'Network-Error: ' + err.toString(); }
+  });
+
+  // initial load + delayed auto status-check (600ms)
+  loadList()
+    .then(() => setTimeout(() => checkAllStatuses({ concurrency: 3, timeoutMs: 4000 }), 600))
+    .catch(e => console.error('Auto status check failed', e));
+
+  function isConnectionActive(c) {
+    if (!c) return false;
+    if (c.connected === true) return true;
+    if (c.isConnected === true) return true;
+    const s = (c.status || c.state || '').toString().toLowerCase();
+    return (s === 'connected' || s === 'online' || s === 'up');
+  }
+
+  async function loadList(){
+    const el = document.getElementById('list');
+    el.innerText = 'Lade...';
+    try {
+      const res = await fetch(api('/connections'));
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const list = await res.json();
+      window._opcuaConnections = Array.isArray(list) ? list : [];
+      if (!list.length) { el.innerHTML = '<p>Keine Verbindungen.</p>'; return; }
+
+      const table = document.createElement('table');
+      table.className = 'conn-table';
+      table.innerHTML = '<thead><tr><th class="id-col">ID</th><th>Endpoint</th><th class="policy-col">Policy</th><th class="mode-col">Mode</th><th class="actions-col">Aktionen</th></tr></thead>';
+      const tbody = document.createElement('tbody');
+
+      list.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.id = 'row-' + String(c.id);
+
+        const tdId = document.createElement('td'); tdId.className = 'id-col'; tdId.textContent = String(c.id || '');
+
+        const tdEndpoint = document.createElement('td'); tdEndpoint.className = 'endpoint-cell';
+        const dot = document.createElement('span'); dot.className = 'status-dot status-unknown';
+        const active = isConnectionActive(c);
+        if (active){ dot.classList.remove('status-unknown'); dot.classList.add('status-green'); dot.title='aktiv'; }
+        else {
+          const s = (c.status || c.state || '').toString().toLowerCase();
+          if (s === 'disconnected' || s === 'offline' || s === 'down' || s === 'false'){ dot.classList.remove('status-unknown'); dot.classList.add('status-red'); dot.title='inaktiv'; }
+          else { dot.classList.remove('status-red'); dot.classList.remove('status-green'); dot.classList.add('status-unknown'); dot.title='Status unbekannt'; }
+        }
+        const epSpan = document.createElement('span'); epSpan.className = 'ep-text'; epSpan.textContent = String(c.endpoint || '');
+        tdEndpoint.appendChild(dot); tdEndpoint.appendChild(epSpan);
+
+        const tdPolicy = document.createElement('td'); tdPolicy.className = 'policy-col'; tdPolicy.textContent = String(c.securityPolicy || '');
+        const tdMode = document.createElement('td'); tdMode.className = 'mode-col'; tdMode.textContent = String(c.securityMode || '');
+
+        const tdActions = document.createElement('td'); tdActions.className = 'actions-col';
+        const actions = document.createElement('div'); actions.className = 'actions';
+        const btnEdit = createIconButtonSvg('edit','Bearbeiten', () => editConn(c.id));
+        const btnDelete = createIconButtonSvg('delete','Löschen', () => deleteConn(c.id));
+        const btnTest = document.createElement('button'); btnTest.type='button'; btnTest.className='btn'; btnTest.textContent='Test';
+        btnTest.addEventListener('click', () => testConn(c.id));
+        actions.appendChild(btnEdit); actions.appendChild(btnDelete); actions.appendChild(btnTest);
+        tdActions.appendChild(actions);
+
+        tr.appendChild(tdId); tr.appendChild(tdEndpoint); tr.appendChild(tdPolicy); tr.appendChild(tdMode); tr.appendChild(tdActions);
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      el.innerHTML = ''; el.appendChild(table);
+
+    } catch (err) {
+      el.innerText = 'Fehler: ' + err.toString();
+      window._opcuaConnections = window._opcuaConnections || [];
+    }
+  }
+
+  async function deleteConn(id){
+    if (!confirm('Löschen?')) return;
+    try {
+      const res = await fetch(api('/connections/' + encodeURIComponent(id)), { method:'DELETE' });
+      if (!res.ok) throw new Error('Löschen fehlgeschlagen: ' + res.status);
+      showGlobal('Verbindung gelöscht.');
+      await loadList();
+    } catch(err){ alert('Fehler: ' + err.toString()); }
+  }
+
+  async function getConnectionByIdWithFallback(id){
+    try {
+      const r = await fetch(api('/connections/' + encodeURIComponent(id)));
+      if (r.ok) return await r.json();
+      if (r.status !== 404) throw new Error('Server antwortete mit ' + r.status);
+    } catch(err){}
+    const cache = window._opcuaConnections || [];
+    const found = cache.find(c => String(c.id) === String(id));
+    if (found) return found;
+    throw new Error('Connection nicht gefunden (Server & Cache)');
+  }
+
+  async function editConn(id){
+    try {
+      const c = await getConnectionByIdWithFallback(id);
+      document.getElementById('connId').value = c.id || '';
+      document.getElementById('name').value = c.name || '';
+      document.getElementById('endpoint').value = c.endpoint || '';
+      document.getElementById('securityPolicy').value = c.securityPolicy || 'None';
+      document.getElementById('securityMode').value = c.securityMode || 'None';
+      const authType = (c.authentication && c.authentication.type) || 'anonymous';
+      document.getElementById('authType').value = authType;
+      document.getElementById('authFields').style.display = authType === 'username' ? 'grid' : 'none';
+      document.getElementById('authUser').value = (c.authentication && c.authentication.username) || '';
+      document.getElementById('authPass').value = (c.authentication && c.authentication.password) || '';
+      document.getElementById('formTitle').innerText = 'Verbindung bearbeiten';
+      document.getElementById('submitBtn').textContent = 'Speichern';
+      document.getElementById('cancelEdit').style.display = ''; // show
+      window.scrollTo({ top:0, behavior:'smooth' });
+    } catch(err){ alert('Fehler beim Laden der Connection: ' + err.toString()); }
+  }
+
+  document.getElementById('addForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const id = document.getElementById('connId').value || null;
+    const body = {
+      name: document.getElementById('name').value || undefined,
+      endpoint: document.getElementById('endpoint').value,
+      securityPolicy: document.getElementById('securityPolicy').value,
+      securityMode: document.getElementById('securityMode').value,
+      authentication: { type: document.getElementById('authType').value }
+    };
+    if (body.authentication.type === 'username') {
+      body.authentication.username = document.getElementById('authUser').value;
+      body.authentication.password = document.getElementById('authPass').value;
+    }
+    try {
+      let res;
+      if (id) {
+        res = await fetch(api('/connections/' + encodeURIComponent(id)), { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error('Speichern fehlgeschlagen: ' + res.status);
+        showGlobal('Verbindung gespeichert.');
+      } else {
+        res = await fetch(api('/connections'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error('Anlegen fehlgeschlagen: ' + res.status);
+        showGlobal('Verbindung angelegt.');
+      }
+      resetForm();
+      await loadList();
+    } catch(err){ alert('Fehler: ' + err.toString()); }
+  });
+
+  function resetForm(){
+    document.getElementById('connId').value = '';
+    document.getElementById('name').value = '';
+    document.getElementById('endpoint').value = '';
+    document.getElementById('securityPolicy').value = 'None';
+    document.getElementById('securityMode').value = 'None';
+    document.getElementById('authType').value = 'anonymous';
+    document.getElementById('authFields').style.display = 'none';
+    document.getElementById('authUser').value = '';
+    document.getElementById('authPass').value = '';
+    document.getElementById('formTitle').innerText = 'Neue Verbindung anlegen';
+    document.getElementById('submitBtn').textContent = 'Anlegen';
+    document.getElementById('cancelEdit').style.display = 'none';
+  }
+
+  async function testConn(id) {
+    const row = document.getElementById('row-' + id);
+    if (!row) { showGlobal('Zeile nicht gefunden.'); return; }
+    const next = row.nextSibling;
+    if (next && next.classList && next.classList.contains('test-result-row')) next.remove();
+    const tr = document.createElement('tr'); tr.classList.add('test-result-row');
+    tr.innerHTML = `<td colspan="5"><div class="muted">Test läuft...</div></td>`;
+    row.parentNode.insertBefore(tr, row.nextSibling);
+    try {
+      const conn = await getConnectionByIdWithFallback(id);
+      const endpoint = conn.endpoint || conn.serverEndpoint || conn.url || conn.host;
+      const username = (conn.authentication && conn.authentication.username) || '';
+      const password = (conn.authentication && conn.authentication.password) || '';
+      const securityPolicy = conn.securityPolicy || 'None';
+      const resp = await fetch(api('/test'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ endpoint, username, password, securityPolicy }) });
+      const data = await resp.json();
+      let out;
+      if (!resp.ok) out = 'Test fehlgeschlagen: ' + (data.error || JSON.stringify(data));
+      else out = 'OK: ' + data.ok + '\nExit-Code: ' + data.code + (data.timedOut ? ' (TIMEOUT)' : '') + '\n\n--- STDOUT ---\n' + (data.stdout || '(keine Ausgabe)') + '\n\n--- STDERR ---\n' + (data.stderr || '(keine Fehler)');
+      tr.innerHTML = `<td colspan="5"><div class="result-pre">${escapeHtml(out)}</div></td>`;
+      showGlobal('Test abgeschlossen für ' + id);
+    } catch (err) {
+      tr.innerHTML = `<td colspan="5"><div class="result-pre">Fehler beim Test: ${escapeHtml(err.toString())}</div></td>`;
+      showGlobal('Test fehlgeschlagen für ' + id);
+    }
+  }
+
+  function showGlobal(text) { document.getElementById('testGlobalResult').innerText = text; }
+
+  async function checkAllStatuses(opts = {}) {
+    const concurrency = opts.concurrency || 3;
+    const timeoutMs = opts.timeoutMs || 5000;
+    const list = window._opcuaConnections || [];
+    if (!list.length) { return; }
+    const progressEl = document.getElementById('statusProgress');
+    let done = 0; progressEl.innerText = `0 / ${list.length}`;
+    let idx = 0;
+    async function worker() {
+      while(true) {
+        const i = idx++; if (i >= list.length) break;
+        const c = list[i];
+        const row = document.getElementById('row-' + c.id);
+        const dot = row ? row.querySelector('.status-dot') : null;
+        if (dot) { dot.className = 'status-dot status-unknown'; dot.title = 'Prüfe...'; }
+        try {
+          const controller = new AbortController();
+          const to = setTimeout(()=>controller.abort(), timeoutMs);
+          const body = { endpoint: c.endpoint, username: (c.authentication && c.authentication.username) || '', password: (c.authentication && c.authentication.password) || '', securityPolicy: c.securityPolicy || 'None' };
+          const r = await fetch(api('/test'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body), signal: controller.signal });
+          clearTimeout(to);
+          if (r.ok) { if (dot) { dot.className='status-dot status-green'; dot.title='aktiv (letzter Test ok)'; } }
+          else { if (dot) { dot.className='status-dot status-red'; dot.title='inaktiv (Test fehlgeschlagen)'; } }
+        } catch(e) { if (dot) { dot.className='status-dot status-red'; dot.title='inaktiv (Timeout/Fehler)'; } }
+        finally { done++; progressEl.innerText = `${done} / ${list.length}`; }
+      }
+    }
+    const workers=[]; for (let w=0; w<concurrency; w++) workers.push(worker()); await Promise.all(workers);
+    setTimeout(()=>{ progressEl.innerText=''; }, 1200);
+  }
+
+  // Exports
+  window.editConn = editConn;
+  window.deleteConn = deleteConn;
+  window.testConn = testConn;
+  window.manualScriptTest = async (endpoint, username, password, securityPolicy) => {
+    const resp = await fetch(api('/test'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ endpoint, username, password, securityPolicy }) });
+    return resp.json();
+  };
+  window.checkAllStatuses = checkAllStatuses;
+</script>
+</body>
+</html>

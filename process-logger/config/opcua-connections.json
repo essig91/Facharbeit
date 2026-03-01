@@ -1,0 +1,23 @@
+{
+  "connections": [
+    {
+      "id": "1770923800196",
+      "name": "BC1",
+      "endpoint": "opc.tcp://192.168.0.10:4840",
+      "securityPolicy": "None",
+      "securityMode": "None",
+      "authentication": {
+        "type": "username",
+        "username": "datalog",
+        "password": "LogLog123"
+      },
+      "requestedSessionTimeout": 60000,
+      "connectionStrategy": {
+        "maxRetry": 10,
+        "initialDelay": 1000,
+        "maxDelay": 10000
+      },
+      "nodeIdsToMonitor": []
+    }
+  ]
+}
