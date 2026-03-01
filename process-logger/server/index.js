@@ -1,3 +1,11 @@
+'use strict';
+/*
+  server/index.js
+  Main Express bootstrap for process-logger
+  - mounts API routers under /api/opcua
+  - ensures the readValue router (opcua-read.js) is mounted so frontend calls to /api/opcua/readValue work
+*/
+
 const express = require('express');
 const path = require('path');
 require('dotenv').config();
@@ -7,31 +15,41 @@ const { init: initDb } = require('./db'); // benutzt server/db.js
 const dbPath = path.join(__dirname, '..', 'data', 'database.db');
 let dbObj = null; // wird nach init gesetzt
 
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// Mount configuration & routers
 const opcuaApi = require('./opcua-config-api');
 app.use('/api/opcua', opcuaApi);
 
 const opcuaTestRouter = require('../routes/opcua-test');
 app.use('/api/opcua', opcuaTestRouter);
 
+// mount opcua-read (ensures POST /api/opcua/readValue is handled by the dedicated read implementation)
+try {
+  const opcuaReadRouter = require('../routes/opcua-read');
+  app.use('/api/opcua', opcuaReadRouter);
+} catch (e) {
+  // If the file doesn't exist or fails to load, log but continue. Mounting later routers may still provide readValue.
+  console.error('Could not mount routes/opcua-read.js:', e && e.message ? e.message : e);
+}
+
 const opcuaBrowseRouter = require('../routes/opcua-browse');
-const opcuaLogpointsRouter = require('../routes/opcua-logpoints');
 app.use('/api/opcua', opcuaBrowseRouter);
+
+// opcua-logpoints router (CRUD for logpoints)
+const opcuaLogpointsRouter = require('../routes/opcua-logpoints');
 app.use('/api/opcua', opcuaLogpointsRouter);
 
 // Network API (apply network changes)
 // NOTE: Make sure this route is protected by your auth middleware in production.
-// The network router file is located at ./server/network.js
 const networkApi = require('./network');
 app.use('/api/network', networkApi);
 
 // NTP-API einbinden (stellt POST /api/ntp bereit)
-const ntpApi = require('./ntp-api'); // falls die Datei ntp-api.js im gleichen Ordner liegt
+const ntpApi = require('./ntp-api');
 app.use('/api', ntpApi);
 
 // Health endpoint
@@ -89,14 +107,9 @@ app.post('/api/measurements/test', (req, res) => {
     // Messung einfügen
     dbObj.insertMeasurement(tag, ts, value);
 
-    // Kürzliche Messungen abfragen (ts-60s .. ts+60s)
-    const rows = dbObj.queryMeasurements(tag, ts - 60_000, ts + 60_000, 10);
-
-    res.json({ ok: true, inserted: { tag, ts, value }, rows });
-  } catch (err) {
-    console.error('DB API error', err);
-    res.status(500).json({ ok: false, error: String(err) });
+    return res.json({ ok: true, tag, ts, value });
+  } catch (e) {
+    console.error('measurements/test error', e);
+    return res.status(500).json({ ok: false, error: String(e) });
   }
-});/* auto-mounted settings API */
-const settingsApi = require('./settings');
-app.use('/api/settings', settingsApi);
+});

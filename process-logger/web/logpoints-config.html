@@ -22,9 +22,6 @@
       --col-nodeid-w: 1%;
     }
 
-    /* NOTE: Do NOT style body with max-width/margin when inside the shell.
-       Use .page-wrapper to constrain the inner content so the left navigation
-       doesn't cause horizontal overflow. */
     body { font-family: var(--shell-font), Arial, sans-serif; color: #111; }
     .page-wrapper { max-width:1200px; margin:1.2rem auto; padding:1rem; box-sizing:border-box; }
 
@@ -32,31 +29,27 @@
     select,input,button { padding:.3rem; }
     table { width:100%; border-collapse:collapse; margin-top:.6rem; table-layout:auto; }
     th,td { border:1px solid #ddd; padding:.4rem; text-align:left; vertical-align:middle; }
-    /* header uses accent color */
     th { background: var(--accent); color: var(--accent-contrast); }
     .muted { color:var(--muted); }
-    .actions { display:flex; gap:.35rem; align-items:center; } /* buttons inline */
+    .actions { display:flex; gap:.35rem; align-items:center; }
     .small { font-size:0.9rem; padding:.2rem .5rem; }
     #browseModal { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.45); display:none; align-items:center; justify-content:center; z-index:9999; }
     #browseBox { background:#fff; width:95%; max-width:1200px; max-height:85%; overflow:auto; border-radius:6px; padding:12px; box-shadow:0 8px 28px rgba(0,0,0,.25); }
     .nowrap { white-space:nowrap; }
     input[type="number"] { width:6rem; }
     td input[type="text"] { width:100%; box-sizing:border-box; }
-    .right { text-align:right; }
     .conn-header { margin-top:1rem; padding:.4rem .6rem; background:#f0f4ff; border:1px solid #d8e1ff; border-radius:4px; }
     .conn-meta { font-size:0.9rem; color:#333; }
-    .value-cell { font-family:monospace; white-space:nowrap; width:1%; text-align:right; } /* shrink to content */
+    .value-cell { font-family:monospace; white-space:nowrap; width:1%; text-align:right; }
     .note { font-size:0.9rem; color:#666; margin-top:.4rem; }
     .spinner { color:#666; }
     .muted-small { color:#666; font-size:0.9rem; }
     td { word-break:break-word; }
 
-    /* cols */
     .col-displayname { width: var(--col-displayname-w); min-width:18rem; }
     td input[data-field="displayName"] { max-width: 80ch; min-width:0; width:100%; box-sizing:border-box; }
     .col-nodeid { font-family:monospace; white-space:nowrap; width: var(--col-nodeid-w); }
 
-    /* unified button style */
     .btn {
       display:inline-block;
       height:34px;
@@ -75,7 +68,6 @@
     .btn:active { background: rgba(43,111,179,0.12); }
     .btn--primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
 
-    /* compact icon button */
     .icon-btn {
       display:inline-flex;
       align-items:center;
@@ -94,11 +86,18 @@
 
     .icon-svg { width:18px; height:18px; display:inline-block; vertical-align:middle; }
 
-    /* modal table monospace */
     #browseResult table td { font-family:monospace; }
-    /* form / layout small adjustments */
     .form-inline { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
     .form-inline input[type="text"] { min-width: 200px; }
+
+    #importModal { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.45); display:none; align-items:center; justify-content:center; z-index:10000; }
+    #importBox { background:#fff; width:95%; max-width:1200px; max-height:85%; overflow:auto; border-radius:6px; padding:12px; box-shadow:0 8px 28px rgba(0,0,0,.25); }
+    .import-controls { display:flex; gap:.5rem; align-items:center; margin-bottom:.6rem; }
+    .danger { background:#e85a5a; color:#fff; border-color:#d94848; }
+    .muted-note { color:#666; font-size:0.9rem; }
+
+    #replaceConfirm { display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:11000; align-items:center; justify-content:center; }
+    #replaceConfirmBox { background:#fff; padding:18px; border-radius:6px; max-width:640px; box-shadow:0 10px 30px rgba(0,0,0,0.3); }
   </style>
 </head>
 <body>
@@ -119,6 +118,7 @@
               <button id="btnRefreshConns" class="btn">Aktualisieren</button>
               <button id="btnOpenBrowse" class="btn">Browse</button>
               <button id="btnLoadLogpoints" class="btn">Logpoints laden</button>
+              <button id="btnOpenImport" class="btn">Tags importieren (XML)</button>
             </div>
           </div>
           <div class="note">Hinweis: Alle erfassten Datenpunkte werden automatisch geladen und nach Verbindung gruppiert angezeigt.</div>
@@ -142,7 +142,7 @@
             <input id="manualUnit" placeholder="Einheit" style="width:8rem">
             <input id="manualInterval" type="number" placeholder="Erfassungsintervall in ms" style="width:8rem" value="1000">
             <label style="display:inline-flex; align-items:center; gap:.3rem;"><input id="manualIsAlarm" type="checkbox"> Störung</label>
-            <label style="margin-left:0.5rem;">Dezimalstellen <input id="manualDecimals" type="number" min="0" max="6" value="2" style="width:4rem"></label>
+            <label style="margin-left:0.5rem;">Dezimalstellen <input id="manualDecimals" type="number" min="0" max="6" value="2" style="width:4rem" disabled></label>
             <button id="btnAddManual" class="btn">Hinzufügen</button>
           </div>
         </section>
@@ -164,9 +164,9 @@
 
               <div style="flex:1"></div>
 
-              <button id="browseSelectAll" class="btn">Alle</button>
-              <button id="browseUnselectAll" class="btn">Keine</button>
-              <button id="browseImport" class="btn">Importieren (Ausgewählte)</button>
+              <button id="browseSelectAll" class="btn">Alle auswählen</button>
+              <button id="browseUnselectAll" class="btn">Keine Auswählen</button>
+              <button id="browseImport" class="btn">Variablen importieren (Ausgewählte)</button>
 
               <label style="margin-left:1rem;"><input type="checkbox" id="filterVariables" checked> Nur Variablen</label>
 
@@ -193,12 +193,53 @@
           </div>
         </div>
 
+        <!-- Import Modal -->
+        <div id="importModal" aria-hidden="true" style="display:none">
+          <div id="importBox">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>Tags.XML importieren</h3>
+              <div>
+                <button id="importClose" class="btn">Schließen</button>
+              </div>
+            </div>
+
+            <div class="import-controls">
+              <input type="file" id="importFile" accept=".xml" />
+              <div class="muted-note">Wähle eine XML Datei</div>
+              <div style="flex:1"></div>
+              <button id="importSelectAll" class="btn">Alle auswählen</button>
+              <button id="importUnselectAll" class="btn">Keine Auswählen</button>
+              <button id="importAppend" class="btn btn--primary">Variablen ergänzen</button>
+              <button id="importReplace" class="btn danger">Variablen ersetzen</button>
+            </div>
+
+            <div id="importStatus" class="muted-small" style="margin-bottom:8px;"></div>
+
+            <div id="importResult" style="font-family:monospace; white-space:pre-wrap;"></div>
+          </div>
+        </div>
+
+        <!-- Replace confirmation -->
+        <div id="replaceConfirm" aria-hidden="true">
+          <div id="replaceConfirmBox">
+            <h3>ACHTUNG — Variablen ersetzen</h3>
+            <p id="replaceConfirmText">Alle bestehenden Variablen für die Verbindung werden gelöscht und durch die ausgewählten Variablen aus der Datei ersetzt. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+            <div style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:12px;">
+              <button id="replaceCancel" class="btn">Abbrechen</button>
+              <button id="replaceConfirmBtn" class="btn danger">Ich bestätige — Variablen ersetzen</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
 
 <script>
-/* UI: Auto-load + Browse + inline SVGs for action buttons + small layout fixes */
+/* Full client-side script.
+   Wichtig: Die Import-Logik enthält jetzt eine sichere Frontend-Probe, die file-local ns=<n> -> server ns=<m> resolved.
+*/
+
 const api = p => '/api/opcua' + p;
 
 const connSelect = document.getElementById('connSelect');
@@ -209,6 +250,21 @@ const btnRefreshValues = document.getElementById('btnRefreshValues');
 const logpointsContainer = document.getElementById('logpointsContainer');
 const logpointsMsg = document.getElementById('logpointsMsg');
 const globalMsg = document.getElementById('globalMsg');
+
+const btnOpenImport = document.getElementById('btnOpenImport');
+const importModal = document.getElementById('importModal');
+const importFile = document.getElementById('importFile');
+const importResult = document.getElementById('importResult');
+const importStatus = document.getElementById('importStatus');
+const importSelectAll = document.getElementById('importSelectAll');
+const importUnselectAll = document.getElementById('importUnselectAll');
+const importAppend = document.getElementById('importAppend');
+const importReplace = document.getElementById('importReplace');
+const importClose = document.getElementById('importClose');
+
+const replaceConfirm = document.getElementById('replaceConfirm');
+const replaceCancel = document.getElementById('replaceCancel');
+const replaceConfirmBtn = document.getElementById('replaceConfirmBtn');
 
 const browseModal = document.getElementById('browseModal');
 const browseResult = document.getElementById('browseResult');
@@ -226,9 +282,10 @@ const namespaceFilterEl = document.getElementById('namespaceFilter');
 let connectionsCache = [];
 let allLogpoints = [];
 let browseNodes = [];
+let importCandidates = [];
 let currentConn = null;
 
-/* helper */
+/* helpers */
 function escapeHtml(s){ if(s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function showGlobal(t){ globalMsg.innerText = t; }
 
@@ -245,7 +302,7 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 8000) {
   }
 }
 
-/* Format time values (input in ms) to ms/s/min/h */
+/* formatting / type helpers (unchanged) */
 function formatTimeMs(ms, decimals = 2) {
   if (ms === null || ms === undefined || ms === '') return '';
   const n = Number(ms);
@@ -257,23 +314,64 @@ function formatTimeMs(ms, decimals = 2) {
   return n.toFixed(0) + ' ms';
 }
 
-function isTimeDataType(dtype) {
+function normalizeVariant(v) {
+  if (v === null || v === undefined) return { value: null, dataType: null };
+  if (typeof v !== 'object') return { value: v, dataType: null };
+  if ('value' in v && (Object.keys(v).length <= 4)) {
+    if (v.value && typeof v.value === 'object' && 'value' in v.value) {
+      return normalizeVariant(v.value);
+    }
+    return { value: v.value, dataType: v.dataType || null };
+  }
+  if ('Value' in v && v.Value) return normalizeVariant(v.Value);
+  return { value: v, dataType: null };
+}
+
+function isFloatType(dtype) {
   if (!dtype) return false;
   const s = String(dtype).toLowerCase();
-  if (s.includes('time')) return true;
-  if (s.includes('3006')) return true;
-  if (s.includes('duration') || s.includes('datetime') || s.includes('utc')) return true;
+  if (/double|float|real|f32|f64|decimal/.test(s)) return true;
+  return false;
+}
+
+function isIntegerType(dtype) {
+  if (!dtype) return false;
+  const s = String(dtype).toLowerCase();
+  if (s === 'i=3002' || s === '3002') return true;
+  if (/\b(u?int|int|sbyte|byte|word|dword|u?int8|u?int16|u?int32|u?int64|i=)\b/.test(s)) {
+    if (/double|float|real|f32|f64/.test(s)) return false;
+    return true;
+  }
+  return false;
+}
+
+function isStringType(dtype, value) {
+  if (dtype) {
+    const s = String(dtype).toLowerCase();
+    if (/\b(string|varchar|char|3014|3015)\b/.test(s)) return true;
+  }
+  return typeof value === 'string';
+}
+
+function isDateType(dtype) {
+  if (!dtype) return false;
+  const s = String(dtype).toLowerCase();
+  if (s === 'i=3008' || s === '3008') return true;
+  if (/\b(date|utc|datetime|timestamp)\b/.test(s)) return true;
   return false;
 }
 
 function humanizeDataType(dt) {
   if (!dt) return '';
   const s = String(dt);
+  if (s === 'i=3002' || s === '3002') return 'UInt16 (Word)';
+  if (s === 'i=3008' || s === '3008') return 'Date';
+  if (s === 'i=3014' || s === '3014') return 'String';
   const sl = s.toLowerCase();
   if (sl.includes('3006') || sl.includes('time') || sl.includes('utc') || sl.includes('datetime') || sl.includes('duration')) {
     return 'Time';
   }
-  if (sl.includes('float') || sl.includes('double') || /\bi=float\b/i.test(sl) || /\bi=double\b/i.test(sl) || /;?i=(?:7|10|11)\b/.test(sl)) {
+  if (isFloatType(s) || sl.includes('float') || sl.includes('double') || /\bi=float\b/i.test(sl) || /\bi=double\b/i.test(sl) || /;?i=(?:7|10|11)\b/.test(sl)) {
     return 'Real';
   }
   const m = s.match(/^[^:]*:(.*)$/);
@@ -281,17 +379,65 @@ function humanizeDataType(dt) {
   return s;
 }
 
-function formatValueByType(value, datatype, decimals) {
-  if (value === null || value === undefined) return '(kein Wert)';
-  if (isTimeDataType(datatype)) return formatTimeMs(value, decimals !== undefined ? decimals : 2);
-  if (typeof value === 'number') return Number(value).toFixed(Math.max(0, Math.min(6, decimals !== undefined ? decimals : 2)));
-  if (typeof value === 'object') {
-    try { return JSON.stringify(value); } catch (e) { return String(value); }
-  }
-  return String(value);
-}
+function formatValueByType(rawValue, datatype, decimals) {
+  const norm = normalizeVariant(rawValue);
+  const v = norm.value;
+  const dt = datatype || norm.dataType || '';
 
-/* Inline SVG icons (used to replace PNG img tags) */
+  if (v === null || v === undefined) return '(kein Wert)';
+
+  if (isStringType(dt, v)) return String(v);
+
+  if (isDateType(dt)) {
+    const n = Number(v);
+    if (Number.isFinite(n)) {
+      const base = new Date(Date.UTC(1990,0,1));
+      const ms = base.getTime() + Number(n) * 24 * 60 * 60 * 1000;
+      const d = new Date(ms);
+      if (!isNaN(d)) return d.toISOString().slice(0,10);
+    }
+    const d = new Date(v);
+    if (!isNaN(d)) return d.toISOString().slice(0,10);
+    return String(v);
+  }
+
+  if (isIntegerType(dt) || Number.isInteger(Number(v))) {
+    if (String(dt).toLowerCase() === 'i=3002' || String(dt) === '3002') {
+      const n = Number(v) >>> 0;
+      return String(n & 0xFFFF);
+    }
+    return String(Math.trunc(Number(v)));
+  }
+
+  if (isFloatType(dt) || typeof v === 'number') {
+    const d = (decimals === undefined || decimals === null) ? 2 : Number(decimals);
+    const cd = Math.max(0, Math.min(6, Number.isFinite(d) ? d : 2));
+    if (!isFinite(Number(v))) return String(v);
+    return Number(v).toFixed(cd);
+  }
+
+  if (Array.isArray(v)) {
+    const preview = v.slice(0,10).map(x => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(', ');
+    return '[' + preview + (v.length > 10 ? ', …' : '') + ']';
+  }
+
+  if (typeof v === 'object') {
+    if ('value' in v) return formatValueByType(v.value, v.dataType || dt, decimals);
+    try { return JSON.stringify(v); } catch (e) { return String(v); }
+  }
+
+  return String(v);
+}
+function isTimeDataType(dtype) {
+  if (!dtype) return false;
+  const s = String(dtype).toLowerCase();
+  // typische textuelle Hinweise
+  if (s.includes('time') || s.includes('utc') || s.includes('datetime') || s.includes('duration')) return true;
+  // einige häufige OPC UA built-in TypeIds (Fallback)
+  if (/\bi=3006\b|\bi=3007\b|\bi=3008\b/.test(s)) return true;
+  return false;
+}
+/* Inline SVG icons */
 function svgIcon(type) {
   if (type === 'save') {
     return '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zM12 19a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm4-11H6V5h10v3z"/></svg>';
@@ -302,7 +448,8 @@ function svgIcon(type) {
   return '';
 }
 
-/* load connections */
+/* --- Loading / rendering functions (unchanged) --- */
+
 async function loadConnections() {
   try {
     const r = await fetchWithTimeout(api('/connections'), {}, 5000);
@@ -324,7 +471,6 @@ async function loadConnections() {
   }
 }
 
-/* load all logpoints */
 async function loadAllLogpoints() {
   try {
     const r = await fetchWithTimeout(api('/logpoints'), {}, 7000);
@@ -339,7 +485,6 @@ async function loadAllLogpoints() {
   }
 }
 
-/* render grouped by connection */
 async function renderAllLogpoints() {
   try {
     await loadConnections();
@@ -366,7 +511,6 @@ async function renderAllLogpoints() {
     }
     groups.sort((a,b) => String(a.label).localeCompare(String(b.label), undefined, {sensitivity:'base'}));
 
-    // Build HTML string (safe, escaped)
     let html = '';
     groups.forEach(g => {
       g.items.sort((x,y) => String(x.nodeId).localeCompare(String(y.nodeId), undefined, {sensitivity:'base'}));
@@ -385,14 +529,16 @@ async function renderAllLogpoints() {
       g.items.forEach(lp => {
         const dp = Number(lp.decimals === undefined ? 2 : lp.decimals) || 2;
         const humanDt = humanizeDataType(lp.dataType || '');
-        // Note: action buttons will be converted to SVG after inserting into DOM
+        const decimalsDisabled = !isFloatType(lp.dataType || '');
+        const decimalsValue = decimalsDisabled ? 0 : dp;
+
         html += `<tr id="lp-${escapeHtml(lp.id)}" data-nodeid="${escapeHtml(lp.nodeId)}" data-conn="${escapeHtml(lp.connectionId)}" data-datatype="${escapeHtml(lp.dataType || '')}">
           <td class="col-displayname"><input data-lpid="${escapeHtml(lp.id)}" data-field="displayName" value="${escapeHtml(lp.displayName||lp.browseName||'')}" style="width:100%"></td>
           <td class="nowrap">${escapeHtml(humanDt)}</td>
           <td style="white-space:nowrap"><input data-lpid="${escapeHtml(lp.id)}" data-field="unit" value="${escapeHtml(lp.unit||'')}" style="width:6rem"></td>
           <td style="white-space:nowrap"><input data-lpid="${escapeHtml(lp.id)}" data-field="samplingIntervalMs" type="number" value="${escapeHtml(lp.samplingIntervalMs||1000)}" style="width:8rem"></td>
           <td style="text-align:center; white-space:nowrap"><input type="checkbox" data-lpid="${escapeHtml(lp.id)}" data-field="isAlarm" ${lp.isAlarm ? 'checked' : ''}></td>
-          <td style="white-space:nowrap"><input data-lpid="${escapeHtml(lp.id)}" data-field="decimals" type="number" min="0" max="6" value="${escapeHtml(dp)}" style="width:4rem"></td>
+          <td style="white-space:nowrap"><input data-lpid="${escapeHtml(lp.id)}" data-field="decimals" type="number" min="0" max="6" value="${escapeHtml(decimalsValue)}" style="width:4rem" ${decimalsDisabled ? 'disabled' : ''}></td>
           <td class="value-cell" data-valuecell="${escapeHtml(lp.id)}">--</td>
           <td class="actions">
             <button data-action="save" data-lpid="${escapeHtml(lp.id)}" data-icon="save" class="icon-btn" title="Speichern" aria-label="Speichern"></button>
@@ -406,13 +552,11 @@ async function renderAllLogpoints() {
 
     logpointsContainer.innerHTML = html;
 
-    // Replace data-icon buttons' content with inline SVGs
     logpointsContainer.querySelectorAll('button[data-icon]').forEach(btn => {
       const t = btn.getAttribute('data-icon');
       btn.innerHTML = svgIcon(t) || '';
     });
 
-    // attach handlers: save/delete
     logpointsContainer.querySelectorAll('button[data-action="save"]').forEach(b => b.addEventListener('click', async (ev) => {
       const id = b.getAttribute('data-lpid'); await saveLpFromInputs(id);
     }));
@@ -426,7 +570,6 @@ async function renderAllLogpoints() {
       } catch (e) { alert('Fehler beim Löschen: ' + e); console.error(e); }
     }));
 
-    // auto refresh values
     await refreshDisplayedValues(true);
 
   } catch (e) {
@@ -442,16 +585,31 @@ async function readValue(connectionId, nodeId) {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ connectionId, nodeId })
-    }, 8000);
+    }, 20000);
     const j = await r.json();
     if (!r.ok) throw new Error(j && j.error ? j.error : ('HTTP ' + r.status));
-    return { ok: true, value: ('value' in j) ? j.value : null };
+    return { ok: true, json: j };
   } catch (e) {
     return { ok: false, error: String(e) };
   }
 }
 
-/* refreshDisplayedValues: concurrency, timeout, retry */
+/* probe read with custom timeout (used by resolver) */
+async function probeRead(connectionId, nodeId, timeoutMs = 4000) {
+  try {
+    const r = await fetchWithTimeout(api('/readValue'), {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ connectionId, nodeId })
+    }, timeoutMs);
+    const j = await r.json();
+    return { ok: r.ok, json: j };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+/* refreshDisplayedValues (unchanged) */
 async function refreshDisplayedValues(firstAttempt = false) {
   logpointsMsg.innerText = 'Werte werden aktualisiert…';
   const rows = Array.from(document.querySelectorAll('tr[id^="lp-"]'));
@@ -482,9 +640,9 @@ async function refreshDisplayedValues(firstAttempt = false) {
         errors.push({ nodeId, error: res.error });
         continue;
       }
-      const v = res.value;
+      const v = res.json && ('value' in res.json) ? res.json.value : null;
       const decEl = row.querySelector(`input[data-lpid="${id}"][data-field="decimals"]`);
-      const decimals = decEl ? (Number(decEl.value) || 0) : 2;
+      const decimals = (decEl && !decEl.disabled) ? (Number(decEl.value) || 0) : 0;
       const formatted = formatValueByType(v, datatype, decimals);
       valueCell.innerText = formatted;
       valueCell.title = (typeof v === 'number' ? v : JSON.stringify(v));
@@ -505,7 +663,7 @@ async function refreshDisplayedValues(firstAttempt = false) {
   logpointsMsg.innerText = errors.length ? `Fertig: ${errors.length} Fehler` : 'Werte aktualisiert';
 }
 
-/* Browse rendering */
+/* Browse functions (unchanged) */
 function openBrowseForSelected() {
   const id = connSelect && connSelect.value;
   if (!id) return showGlobal('Bitte Verbindung wählen');
@@ -580,7 +738,7 @@ function renderBrowseNodes(nodes) {
       <td><input data-unit idx="${i}" type="text"></td>
       <td><input data-interval type="number" idx="${i}" value="1000"></td>
       <td style="text-align:center"><input data-isalarm idx="${i}" type="checkbox"></td>
-      <td><input data-decimals type="number" idx="${i}" min="0" max="6" value="2" style="width:4rem"></td>
+      <td><input data-decimals type="number" idx="${i}" min="0" max="6" value="${isFloatType(dt) ? 2 : 0}" style="width:4rem" ${isFloatType(dt) ? '' : 'disabled'}></td>
       <td style="font-family:monospace">${escapeHtml(String(valDisplay))}</td>
     `;
     tb.appendChild(tr);
@@ -589,7 +747,549 @@ function renderBrowseNodes(nodes) {
   if (browseResult) { browseResult.innerHTML = ''; browseResult.appendChild(t); }
 }
 
-/* import/save/add */
+/* -----------------------------
+   Tags.xml import: parsing + robust frontend probing resolver
+   ----------------------------- */
+
+function parseAliases(doc) {
+  const aliases = {};
+  try {
+    const aliasEls = doc.getElementsByTagName('Alias');
+    for (let i=0;i<aliasEls.length;i++){
+      const el = aliasEls[i];
+      const name = el.getAttribute('Alias');
+      const value = (el.textContent||'').trim();
+      if (name && value) aliases[name] = value;
+    }
+  } catch(e) {}
+  return aliases;
+}
+
+function getTextFromChild(node, tagNameLocal) {
+  for (let i=0;i<node.childNodes.length;i++){
+    const c = node.childNodes[i];
+    if (c && c.localName === tagNameLocal) return (c.textContent||'').trim();
+  }
+  return '';
+}
+
+function parseTagsXml(xmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'application/xml');
+  const parseError = doc.getElementsByTagName('parsererror');
+  if (parseError && parseError.length) throw new Error('XML Parsing error');
+
+  const aliases = parseAliases(doc);
+
+  // read NamespaceUris from file (if present)
+  const fileNamespaceUris = [];
+  try {
+    const nsParent = doc.getElementsByTagName('NamespaceUris')[0];
+    if (nsParent) {
+      for (let i=0;i<nsParent.childNodes.length;i++){
+        const c = nsParent.childNodes[i];
+        if (c && (c.localName === 'Uri' || c.nodeName === 'Uri')) {
+          const txt = (c.textContent||'').trim();
+          if (txt) fileNamespaceUris.push(txt);
+        }
+      }
+    }
+  } catch(e) {}
+
+  const vars = [];
+  const uavars = doc.getElementsByTagName('UAVariable');
+  for (let i=0;i<uavars.length;i++){
+    const el = uavars[i];
+    const nodeId = el.getAttribute('NodeId') || '';
+    const browseName = el.getAttribute('BrowseName') || '';
+    const displayName = getTextFromChild(el, 'DisplayName') || '';
+    const dataType = el.getAttribute('DataType') || '';
+
+    let mapping = '';
+    try {
+      const exts = el.getElementsByTagName('Extension');
+      for (let j=0;j<exts.length;j++){
+        const ex = exts[j];
+        const inner = ex.textContent || '';
+        if (inner && inner.toLowerCase().includes('variablemapping')) {
+          mapping = inner.trim();
+          break;
+        }
+        const vm = ex.getElementsByTagName('si:VariableMapping')[0] || ex.getElementsByTagName('VariableMapping')[0];
+        if (vm) { mapping = (vm.textContent||'').trim(); break; }
+      }
+    } catch(e) {}
+
+    const bnLower = (browseName || '').toLowerCase();
+    const displayLower = (displayName || '').toLowerCase();
+    const metaNames = ['namespaceuri','namespaceversion','namespacepublicationdate','isnamespacesubset','staticnodeidtypes','staticnumericnodeidrange','staticstringnodeidpattern','defaultrolepermissions','defaultaccessrestrictions'];
+    const isMeta = metaNames.includes(bnLower) || metaNames.includes(displayLower);
+
+    const blacklistTypes = ['i=2003','2003','i=14','14','ns=1;i=3064','3064'];
+    const dtNorm = (dataType||'').trim().toLowerCase();
+    const resolvedDataType = aliases[dataType] || dataType;
+    const resolvedNorm = (resolvedDataType||'').trim().toLowerCase();
+
+    const isNonDataName = /^icon$/i.test(displayName) || /^icon$/i.test(browseName) ||
+                          /interfaceuuid/i.test(displayName) || /interfaceuuid/i.test(browseName) ||
+                          /interfaceversion/i.test(displayName) || /interfaceversion/i.test(browseName);
+
+    if (!nodeId || isMeta) continue;
+    if (blacklistTypes.includes(dtNorm) || blacklistTypes.includes(resolvedNorm) || isNonDataName) continue;
+
+    // detect file-local ns index and map to fileNamespaceUri if present in file
+    let fileNsUri = null;
+    const m = String(nodeId).match(/^\s*ns=(\d+);i=(\d+)\s*$/i);
+    if (m) {
+      const idx = Number(m[1]);
+      if (Array.isArray(fileNamespaceUris) && fileNamespaceUris[idx]) {
+        fileNsUri = fileNamespaceUris[idx];
+      }
+    }
+
+    vars.push({
+      nodeId,
+      browseName,
+      displayName,
+      dataType,
+      resolvedDataType: resolvedDataType || dataType,
+      mapping,
+      fileNamespaceUri: fileNsUri,
+      resolvedNodeId: null
+    });
+  }
+
+  return vars;
+}
+
+/* fetchNamespaceArrayForConnection: wrapper to read i=2255 via server */
+async function fetchNamespaceArrayForConnection(connectionId) {
+  try {
+    const res = await fetchWithTimeout(api('/readValue'), {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ connectionId, nodeId: 'i=2255' })
+    }, 12000);
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt || ('HTTP ' + res.status));
+    }
+    const json = await res.json();
+    const arr = json && json.value ? json.value : null;
+    if (!Array.isArray(arr)) return null;
+    return arr;
+  } catch (e) {
+    console.warn('fetchNamespaceArrayForConnection error', e);
+    return null;
+  }
+}
+
+/* tryResolveNodeIdFromUri: re-used to resolve nsu=... or http://..;i=.. */
+function tryResolveNodeIdFromUri(nodeIdStr, namespaceArray) {
+  if (!nodeIdStr || !namespaceArray) return null;
+  const m1 = String(nodeIdStr).match(/^\s*nsu=(.+);i=(\d+)\s*$/i);
+  const m2 = String(nodeIdStr).match(/^\s*(https?:\/\/[^;]+);i=(\d+)\s*$/i);
+  const m3 = String(nodeIdStr).match(/^\s*ns=(.+);i=(\d+)\s*$/i);
+  const match = m1 || m2 || m3;
+  if (!match) return null;
+  const nsUri = match[1].trim();
+  const id = Number(match[2]);
+  let idx = namespaceArray.indexOf(nsUri);
+  if (idx === -1) {
+    const lower = nsUri.toLowerCase();
+    idx = namespaceArray.findIndex(x => String(x || '').toLowerCase() === lower);
+  }
+  if (idx === -1) {
+    idx = namespaceArray.findIndex(x => String(x || '').indexOf(nsUri) !== -1);
+  }
+  if (idx === -1) return null;
+  return `ns=${idx};i=${id}`;
+}
+
+/* renderImportCandidates: shows resolvedNodeId column */
+function renderImportCandidates(candidates) {
+  importCandidates = candidates || [];
+  if (!importCandidates.length) {
+    importResult.innerHTML = '<div class="muted-note">Keine passenden UAVariable-Einträge gefunden.</div>';
+    return;
+  }
+
+  let html = '<table style="width:100%;border-collapse:collapse;"><thead><tr><th></th><th>Anzeigename</th><th>NodeId</th><th>Resolved</th><th>BrowseName</th><th>DataType</th><th>Mapping</th></tr></thead><tbody>';
+  importCandidates.forEach((c, idx) => {
+    const dtDisplay = c.resolvedDataType ? `${escapeHtml(c.resolvedDataType)} (${escapeHtml(c.dataType)})` : escapeHtml(c.dataType || '');
+    const resolved = c.resolvedNodeId ? `<strong>${escapeHtml(c.resolvedNodeId)}</strong>` : '<span class="small-muted">(nicht aufgelöst)</span>';
+    html += `<tr>
+      <td style="width:3rem"><input type="checkbox" data-idx="${idx}" checked></td>
+      <td>${escapeHtml(c.displayName||'')}</td>
+      <td style="font-family:monospace">${escapeHtml(c.nodeId)}</td>
+      <td style="font-family:monospace">${resolved}</td>
+      <td>${escapeHtml(c.browseName||'')}</td>
+      <td>${escapeHtml(dtDisplay)}</td>
+      <td>${escapeHtml(c.mapping||'')}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  importResult.innerHTML = html;
+  importStatus.innerText = `Gefundene Variablen: ${importCandidates.length} (standardmäßig ausgewählt)`;
+}
+
+/* frontend probe resolver:
+   - candidates: array (with nodeId, fileNamespaceUri, resolvedNodeId)
+   - connId: connection id
+   - options: { concurrency, perProbeTimeoutMs, maxNamespaceIndexFallback }
+*/
+async function probeResolveCandidates(candidates, connId, options = {}) {
+  const concurrency = options.concurrency || 4;
+  const perProbeTimeoutMs = options.perProbeTimeoutMs || 4000;
+  const maxNsFallback = options.maxNamespaceIndexFallback || 20;
+
+  importStatus.innerText = 'Hole NamespaceArray vom Server… (zur Begrenzung der Probes)';
+  let namespaceArray = await fetchNamespaceArrayForConnection(connId);
+  let nsCount = Array.isArray(namespaceArray) ? namespaceArray.length : null;
+  if (!nsCount) {
+    // fallback
+    nsCount = maxNsFallback;
+    namespaceArray = null;
+    importStatus.innerText = `NamespaceArray nicht verfügbar — versuche bis ns=${nsCount-1}`;
+  } else {
+    importStatus.innerText = `NamespaceArray geladen (${nsCount} Einträge) — starte Auflösung`;
+  }
+
+  // helper: try to resolve a single candidate
+  async function resolveCandidate(candidate, progress) {
+    // 1) if nodeId already URI form, try direct resolve via namespaceArray
+    if (namespaceArray && /^(nsu=|https?:\/\/)/i.test(String(candidate.nodeId || ''))) {
+      const resolved = tryResolveNodeIdFromUri(candidate.nodeId, namespaceArray);
+      if (resolved) {
+        candidate.resolvedNodeId = resolved;
+        if (progress) progress.found++;
+        return true;
+      }
+    }
+
+    // 2) if fileNamespaceUri present, try mapping fileUri -> server index via namespaceArray
+    if (namespaceArray && candidate.fileNamespaceUri) {
+      // pseudo nodeId for reuse: "<uri>;i=<id>"
+      const m = String(candidate.nodeId).match(/^\s*ns=(\d+);i=(\d+)\s*$/i);
+      if (m) {
+        const id = Number(m[2]);
+        const pseudo = String(candidate.fileNamespaceUri) + ';i=' + String(id);
+        const resolved = tryResolveNodeIdFromUri(pseudo, namespaceArray);
+        if (resolved) {
+          candidate.resolvedNodeId = resolved;
+          if (progress) progress.found++;
+          return true;
+        }
+      }
+    }
+
+    // 3) probing numeric ns indexes: try ns=0..nsCount-1
+    // Try sequentially until a successful read is found (value !== null or statusCode Good)
+    const m2 = String(candidate.nodeId).match(/^\s*ns=(\d+);i=(\d+)\s*$/i);
+    if (!m2) return false; // nothing to probe
+
+    const id = Number(m2[2]);
+    let tried = 0;
+    for (let idx = 0; idx < nsCount; idx++) {
+      const probeNodeId = `ns=${idx};i=${id}`;
+      importStatus.innerText = `Auflösung: probiere ${probeNodeId} (${progress.done + tried + 1}/${progress.total})`;
+      const pr = await probeRead(connId, probeNodeId, perProbeTimeoutMs);
+      tried++;
+      if (pr.ok && pr.json) {
+        // success criteria: value present (not null/undefined) OR statusCode 'Good'
+        const j = pr.json;
+        const hasValue = ('value' in j) && j.value !== null && j.value !== undefined;
+        const statusGood = j.statusCode && String(j.statusCode).toLowerCase().includes('good');
+        if (hasValue || statusGood) {
+          candidate.resolvedNodeId = probeNodeId;
+          if (progress) progress.found++;
+          return true;
+        }
+      }
+      // continue probing
+    }
+    if (progress) progress.tried += tried;
+    return false;
+  }
+
+  // process candidates with limited concurrency
+  const toResolve = candidates.filter(c => !c.resolvedNodeId);
+  if (!toResolve.length) {
+    importStatus.innerText = 'Keine Auflösung nötig';
+    return candidates;
+  }
+
+  const progress = { total: toResolve.length * (nsCount || 1), done: 0, found: 0, tried: 0 };
+  let index = 0;
+
+  async function worker() {
+    while (true) {
+      const i = index++;
+      if (i >= toResolve.length) break;
+      const cand = toResolve[i];
+      // update small progress object used inside resolveCandidate
+      try {
+        await resolveCandidate(cand, { total: toResolve.length, found: progress.found, done: i, tried: progress.tried });
+      } catch (e) {
+        console.warn('resolveCandidate error', e);
+      }
+      progress.done++;
+      importStatus.innerText = `Auflösung: ${progress.done}/${toResolve.length} Kandidaten verarbeitet — ${progress.found} erfolgreich`;
+      // update table to show immediate results
+      renderImportCandidates(candidates);
+    }
+  }
+
+  const workers = [];
+  for (let w=0; w<concurrency; w++) workers.push(worker());
+  await Promise.all(workers);
+
+  importStatus.innerText = `Auflösung beendet: ${toResolve.length} geprüft, ${progress.found} gefunden`;
+  return candidates;
+}
+
+/* import modal flow: parse, detect, fetch namespaceArray, probe resolves, render */
+btnOpenImport && btnOpenImport.addEventListener('click', () => {
+  const id = connSelect && connSelect.value;
+  if (!id) { showGlobal('Bitte Verbindung wählen, bevor du Tags importierst'); return; }
+  const conn = connectionsCache.find(c => String(c.id) === String(id) || String(c.endpoint) === String(id));
+  currentConn = conn || null;
+  importModal.style.display = 'flex';
+  importResult.innerHTML = '<div class="muted-note">Bitte Datei wählen...</div>';
+  importStatus.innerText = '';
+  importFile.value = '';
+  importCandidates = [];
+});
+
+importSelectAll && importSelectAll.addEventListener('click', () => {
+  importResult.querySelectorAll('input[type=checkbox][data-idx]').forEach(cb => cb.checked = true);
+});
+importUnselectAll && importUnselectAll.addEventListener('click', () => {
+  importResult.querySelectorAll('input[type=checkbox][data-idx]').forEach(cb => cb.checked = false);
+});
+
+/* THE key change: importFile change now does robust probing when needed */
+importFile && importFile.addEventListener('change', async (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  const connId = connSelect && connSelect.value;
+  if (!connId) { alert('Bitte Verbindung wählen'); return; }
+
+  try {
+    importStatus.innerText = 'Datei wird gelesen…';
+    const txt = await f.text();
+    let candidates = parseTagsXml(txt);
+
+    if (!candidates.length) {
+      importResult.innerHTML = '<div class="muted-note">Keine passenden UAVariable-Einträge gefunden.</div>';
+      importStatus.innerText = 'Datei geparst. Keine UAVariable-Einträge.';
+      return;
+    }
+
+    // detect if some nodeIds are URI-form or file-local ns index
+    const hasUriNodeId = candidates.some(c => /^(nsu=|https?:\/\/)/i.test(String(c.nodeId||'')));
+    const hasFileNs = candidates.some(c => !!c.fileNamespaceUri);
+    const hasFileIndex = candidates.some(c => /^\s*ns=\d+;i=\d+\s*$/i.test(String(c.nodeId||'')));
+
+    // If there are URI forms or file-local ns indices, attempt resolution:
+    if (hasUriNodeId || hasFileNs || hasFileIndex) {
+      importStatus.innerText = 'Versuche NodeId-Auflösung (kann einige Sekunden dauern)…';
+      // first try quick URI/fileNamespaceUri -> server mapping via NamespaceArray
+      let namespaceArray = await fetchNamespaceArrayForConnection(connId);
+      if (namespaceArray && (hasUriNodeId || hasFileNs)) {
+        // quick pass: try to resolve URIs via namespaceArray
+        let quickResolved = 0;
+        for (const c of candidates) {
+          if (c.resolvedNodeId) continue;
+          // direct URI forms
+          if (/^(nsu=|https?:\/\/)/i.test(String(c.nodeId||''))) {
+            const r = tryResolveNodeIdFromUri(c.nodeId, namespaceArray);
+            if (r) { c.resolvedNodeId = r; quickResolved++; continue; }
+          }
+          // fileNamespaceUri mapping
+          if (c.fileNamespaceUri) {
+            const m = String(c.nodeId).match(/^\s*ns=(\d+);i=(\d+)\s*$/i);
+            if (m) {
+              const id = Number(m[2]);
+              const pseudo = String(c.fileNamespaceUri) + ';i=' + String(id);
+              const rr = tryResolveNodeIdFromUri(pseudo, namespaceArray);
+              if (rr) { c.resolvedNodeId = rr; quickResolved++; continue; }
+            }
+          }
+        }
+        if (quickResolved) {
+          importStatus.innerText = `Schnellauflösung: ${quickResolved} Einträge gefunden. Weitere Auflösung läuft…`;
+          renderImportCandidates(candidates);
+        }
+      }
+
+      // For remaining unresolved candidates, run probing (may be slower but reliable)
+      const unresolved = candidates.filter(c => !c.resolvedNodeId && /^\s*ns=\d+;i=\d+\s*$/i.test(String(c.nodeId||'')));
+      if (unresolved.length) {
+        importStatus.innerText = `Starte Probing für ${unresolved.length} Einträge…`;
+        // Probe: use namespaceArray.length if available, else fallback to 20
+        const nsCount = (Array.isArray(namespaceArray) ? namespaceArray.length : 20);
+        // run probing with concurrency (4) and per-probe timeout 4000ms
+        await probeResolveCandidates(candidates, connId, { concurrency: 4, perProbeTimeoutMs: 4000, maxNamespaceIndexFallback: Math.max(nsCount,20) });
+      }
+    }
+
+    // finally render table
+    renderImportCandidates(candidates);
+
+    // If none resolved, make that explicit
+    const resolvedCount = candidates.filter(c => c.resolvedNodeId).length;
+    if (resolvedCount) {
+      importStatus.innerText = `Datei geparst. ${resolvedCount} / ${candidates.length} NodeIds aufgelöst.`;
+    } else {
+      importStatus.innerText = 'Datei geparst. Keine NodeIds aufgelöst.';
+    }
+
+  } catch (e) {
+    importResult.innerHTML = `<div class="muted-note">Fehler beim Parsen der Datei: ${escapeHtml(String(e.message || e))}</div>`;
+    importStatus.innerText = '';
+    console.error('parseTagsXml/import error', e);
+  }
+});
+
+/* collectSelectedImportItems: prefer resolvedNodeId when present */
+function collectSelectedImportItems() {
+  const checks = importResult.querySelectorAll('input[type=checkbox][data-idx]');
+  const selected = [];
+  const connId = connSelect && connSelect.value;
+  for (const cb of checks) {
+    if (!cb.checked) continue;
+    const i = Number(cb.getAttribute('data-idx'));
+    const n = importCandidates[i];
+    if (!n) continue;
+    const dt = n.resolvedDataType || n.dataType || '';
+    const decimals = isFloatType(dt) ? 2 : 0;
+    const nodeIdToUse = n.resolvedNodeId || n.nodeId || '';
+    selected.push({
+      connectionId: connId,
+      nodeId: nodeIdToUse,
+      browseName: n.browseName || '',
+      displayName: n.displayName || '',
+      dataType: n.dataType || dt || '',
+      unit: '',
+      samplingIntervalMs: 1000,
+      isAlarm: false,
+      decimals
+    });
+  }
+  return selected;
+}
+
+/* importAppend (unchanged behavior) */
+importAppend && importAppend.addEventListener('click', async () => {
+  const connId = connSelect && connSelect.value;
+  if (!connId) return alert('Bitte Verbindung wählen');
+  const items = collectSelectedImportItems();
+  if (!items.length) return alert('Keine Variablen ausgewählt');
+
+  const unresolved = items.filter(it => /^(https?:\/\/|nsu=)/i.test(String(it.nodeId)));
+  if (unresolved.length) {
+    if (!confirm(`Es gibt ${unresolved.length} Einträge mit nicht aufgelöster URI-NodeId. Diese werden mit der unveränderten NodeId importiert. Fortfahren?`)) return;
+  }
+
+  if (!confirm(`Variablen ergänzen: ${items.length} Einträge werden importiert (Duplikate werden übersprungen). Fortfahren?`)) return;
+
+  try {
+    importStatus.innerText = 'Prüfe vorhandene Einträge…';
+    const rExisting = await fetchWithTimeout(api('/logpoints?connectionId=' + encodeURIComponent(connId)), {}, 8000);
+    const existing = (rExisting.ok) ? await rExisting.json() : [];
+    const existingNodeIds = new Set((existing || []).map(e => String(e.nodeId)));
+    const toInsert = items.filter(it => !existingNodeIds.has(it.nodeId));
+    const skipped = items.length - toInsert.length;
+
+    if (!toInsert.length) {
+      importStatus.innerText = `Keine neuen Einträge (alle ${items.length} bereits vorhanden).`;
+      return;
+    }
+
+    importStatus.innerText = `Importiere ${toInsert.length} Einträge…`;
+    const r = await fetchWithTimeout(api('/logpoints/bulk'), {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(toInsert)
+    }, 20000);
+
+    if (!r.ok) {
+      const txt = await r.text();
+      throw new Error(txt || ('HTTP ' + r.status));
+    }
+    const json = await r.json();
+    importStatus.innerText = `Importiert: ${json.count || toInsert.length} Einträge. Übersprungen: ${skipped}`;
+    showGlobal(`Import abgeschlossen: ${json.count || toInsert.length} importiert, ${skipped} übersprungen`);
+    importModal.style.display = 'none';
+    await renderAllLogpoints();
+  } catch (e) {
+    importStatus.innerText = 'Fehler beim Import: ' + String(e);
+    console.error('importAppend error', e);
+  }
+});
+
+/* importReplace (unchanged) */
+importReplace && importReplace.addEventListener('click', async () => {
+  const connId = connSelect && connSelect.value;
+  if (!connId) return alert('Bitte Verbindung wählen');
+  const selected = collectSelectedImportItems();
+  if (!selected.length) return alert('Keine Variablen ausgewählt');
+
+  const unresolved = selected.filter(it => /^(https?:\/\/|nsu=)/i.test(String(it.nodeId)));
+  if (unresolved.length) {
+    if (!confirm(`Es gibt ${unresolved.length} Einträge mit nicht aufgelöster URI-NodeId. Diese werden mit der unveränderten NodeId verwendet. Fortfahren?`)) return;
+  }
+
+  replaceConfirm.style.display = 'flex';
+});
+
+replaceCancel && replaceCancel.addEventListener('click', () => { replaceConfirm.style.display = 'none'; });
+
+replaceConfirmBtn && replaceConfirmBtn.addEventListener('click', async () => {
+  replaceConfirm.style.display = 'none';
+  const connId = connSelect && connSelect.value;
+  const selected = collectSelectedImportItems();
+  if (!connId) return alert('Bitte Verbindung wählen');
+  if (!selected.length) return alert('Keine Variablen ausgewählt');
+
+  try {
+    importStatus.innerText = 'Lösche vorhandene Einträge…';
+    const rExisting = await fetchWithTimeout(api('/logpoints?connectionId=' + encodeURIComponent(connId)), {}, 10000);
+    if (!rExisting.ok) throw new Error('Fehler beim Abrufen vorhandener Einträge: HTTP ' + rExisting.status);
+    const existing = await rExisting.json();
+    for (const ex of existing) {
+      try {
+        const rDel = await fetchWithTimeout(api('/logpoints/' + encodeURIComponent(ex.id)), { method: 'DELETE' }, 8000);
+        if (!rDel.ok) throw new Error('HTTP ' + rDel.status);
+      } catch (eDel) {
+        throw new Error('Fehler beim Löschen vorhandener Einträge: ' + eDel.message);
+      }
+    }
+
+    importStatus.innerText = 'Füge neue Einträge ein…';
+    const r = await fetchWithTimeout(api('/logpoints/bulk'), {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(selected)
+    }, 20000);
+    if (!r.ok) {
+      const t = await r.text();
+      throw new Error(t || ('HTTP ' + r.status));
+    }
+    const json = await r.json();
+    importStatus.innerText = `Ersetzt: ${json.count || selected.length} Einträge angelegt`;
+    showGlobal(`Ersetzt: ${json.count || selected.length} Einträge`);
+    importModal.style.display = 'none';
+    await renderAllLogpoints();
+  } catch (e) {
+    importStatus.innerText = 'Fehler beim Ersetzen: ' + String(e);
+    console.error('replace import error', e);
+  }
+});
+
+/* Remaining functions: importSelectedFromBrowse, save, manual add, events wiring, init */
+
 async function importSelectedFromBrowse() {
   const checks = browseResult.querySelectorAll('input[type=checkbox][data-idx]');
   const selected = [];
@@ -605,7 +1305,7 @@ async function importSelectedFromBrowse() {
       const displayNameEl = browseResult.querySelector(`input[data-displayname][idx="${i}"]`);
       const displayName = displayNameEl ? displayNameEl.value : (n.displayName || '');
       const decimalsEl = browseResult.querySelector(`input[data-decimals][idx="${i}"]`);
-      const decimals = decimalsEl ? Number(decimalsEl.value)||2 : 2;
+      const decimals = (decimalsEl && !decimalsEl.disabled) ? Number(decimalsEl.value)||2 : 0;
 
       selected.push({
         connectionId: currentConn.id || currentConn.endpoint,
@@ -679,9 +1379,12 @@ async function saveLpFromInputs(id) {
     displayName: displayEl ? displayEl.value : '',
     unit: unitEl ? unitEl.value : '',
     samplingIntervalMs: intEl ? Number(intEl.value)||1000 : 1000,
-    isAlarm: alarmEl ? !!alarmEl.checked : false,
-    decimals: decEl ? Number(decEl.value)||2 : 2
+    isAlarm: alarmEl ? !!alarmEl.checked : false
   };
+  if (decEl && !decEl.disabled) {
+    patch.decimals = Number(decEl.value)||2;
+  }
+
   try {
     const r = await fetchWithTimeout(api('/logpoints/' + encodeURIComponent(id)), { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(patch) }, 8000);
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -709,7 +1412,7 @@ async function addManualEntry() {
   const unit = unitEl ? unitEl.value.trim() : '';
   const interval = Number(intervalEl ? intervalEl.value : 1000) || 1000;
   const isAlarm = !!(isAlarmEl && isAlarmEl.checked);
-  const decimals = Number(decimalsEl ? decimalsEl.value : 2) || 2;
+  const decimals = Number(decimalsEl && !decimalsEl.disabled ? decimalsEl.value : 0) || 0;
 
   if (!nodeId) return alert('NodeId benötigt');
   if (!connectionId) return alert('Bitte Connection wählen oder ConnectionId/Endpoint im Select eintragen');
@@ -743,7 +1446,7 @@ browseUnselectAll && browseUnselectAll.addEventListener('click', () => { if (bro
 browseImport && browseImport.addEventListener('click', importSelectedFromBrowse);
 document.getElementById('btnAddManual') && document.getElementById('btnAddManual').addEventListener('click', addManualEntry);
 
-/* Prevent concurrent renders and do a single delayed initial load */
+/* Prevent concurrent renders and initial load */
 let isRendering = false;
 async function safeRenderAllLogpoints() {
   if (isRendering) return;
@@ -757,7 +1460,6 @@ async function safeRenderAllLogpoints() {
   }
 }
 
-/* Initialize after insertion (works standalone and when loaded into the Shell) */
 function whenReady(fn) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', fn);
@@ -772,7 +1474,6 @@ whenReady(async () => {
   } catch (e) {
     console.error('initial loadConnections error', e);
   }
-  // single delayed render (600ms)
   const delayMs = 600;
   setTimeout(() => {
     safeRenderAllLogpoints();

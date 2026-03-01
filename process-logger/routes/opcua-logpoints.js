@@ -1,8 +1,9 @@
+'use strict';
 /**
  * routes/opcua-logpoints.js
  *
- * API für Logpoints (Datei-Backed) plus zusätzlicher readValue-Handler,
- * der einen einzelnen OPC UA Node (Attribute Value) direkt liest.
+ * API für Logpoints (SQLite-only via ../lib/logpoint-store.js)
+ * plus readValue-Handler (versucht global handler, ansonsten eigene OPC UA read mit Namespace-URI-Auflösung).
  *
  * Endpunkte:
  *  - GET  /api/opcua/logpoints?connectionId=...
@@ -10,188 +11,85 @@
  *  - POST /api/opcua/logpoints/bulk
  *  - PUT  /api/opcua/logpoints/:id
  *  - DELETE /api/opcua/logpoints/:id
- *  - POST /api/opcua/readValue    <-- NEU: { connectionId, nodeId } -> { nodeId, value }
- *
- * Storage: JSON-Datei unter /opt/process-logger/data/logpoints.json
- *
- * Hinweis: diese Datei ist "standalone" und benutzt node-fetch + node-opcua
- * für die readValue-Funktion. Stelle sicher, dass node-fetch und node-opcua
- * in node_modules vorhanden sind (sind normalerweise in deiner Installation).
+ *  - POST /api/opcua/readValue
  */
 
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const path = require('path');
 
-const DATA_DIR = process.env.PROCESS_LOGGER_DATA_DIR || '/opt/process-logger/data';
-const DATA_FILE = path.join(DATA_DIR, 'logpoints.json');
+const store = require('../lib/logpoint-store');
 
-function ensureDataFile() {
+// node-opcua (optional)
+let nodeOpcUaAvailable = true;
+let opcua;
+try {
+  opcua = require('node-opcua');
+} catch (e) {
+  nodeOpcUaAvailable = false;
+  // not fatal; readValue will try global handler first and otherwise return 501
+}
+
+/* Helper: safety wrapper für sync/async store calls */
+function safeCall(fn) {
   try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify([]), { mode: 0o640 });
+    const res = fn();
+    if (res && typeof res.then === 'function') return res;
+    return Promise.resolve(res);
   } catch (e) {
-    console.error('ensureDataFile error', e);
-    throw e;
+    return Promise.reject(e);
   }
 }
 
-function readAll() {
-  ensureDataFile();
-  try {
-    const txt = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(txt || '[]');
-  } catch (e) {
-    console.error('readAll logpoints error', e);
-    return [];
-  }
-}
-
-function writeAll(list) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
-  } catch (e) {
-    console.error('writeAll logpoints error', e);
-    throw e;
-  }
-}
-
-function makeId() {
-  return Date.now().toString(10) + Math.floor(Math.random() * 1000).toString(10);
-}
-
-/* GET /api/opcua/logpoints
-   optional query: connectionId
-*/
-router.get('/logpoints', (req, res) => {
+/* GET /api/opcua/logpoints */
+router.get('/logpoints', async (req, res) => {
   try {
     const connectionId = req.query.connectionId;
-    const all = readAll();
-    if (connectionId) {
-      const filtered = all.filter(lp => String(lp.connectionId) === String(connectionId));
-      return res.json(filtered);
-    }
-    return res.json(all);
+    const all = await safeCall(() => (connectionId ? store.list({ connectionId }) : store.list()));
+    return res.json(all || []);
   } catch (err) {
     console.error('GET /logpoints error', err);
     return res.status(500).json({ error: String(err) });
   }
 });
 
-/* POST /api/opcua/logpoints
-   Body: { connectionId, nodeId, browseName?, displayName?, dataType?, unit?, samplingIntervalMs?, isAlarm?, decimals? }
-*/
-router.post('/logpoints', (req, res) => {
+/* POST /api/opcua/logpoints */
+router.post('/logpoints', async (req, res) => {
   try {
-    const body = req.body || {};
-    if (!body.connectionId || !body.nodeId) {
-      return res.status(400).json({ error: 'connectionId and nodeId required' });
-    }
-    const all = readAll();
-    const now = new Date().toISOString();
-    const rec = {
-      id: makeId(),
-      connectionId: body.connectionId,
-      nodeId: body.nodeId,
-      browseName: body.browseName || '',
-      displayName: body.displayName || '',
-      dataType: body.dataType || '',
-      unit: body.unit || '',
-      samplingIntervalMs: Number(body.samplingIntervalMs) || 1000,
-      isAlarm: !!body.isAlarm,
-      decimals: Number(body.decimals) >= 0 ? Number(body.decimals) : 2,
-      createdAt: now,
-      updatedAt: now
-    };
-    all.push(rec);
-    writeAll(all);
-    return res.status(201).json(rec);
+    const obj = req.body || {};
+    const created = await safeCall(() => store.create(obj));
+    return res.status(201).json(created);
   } catch (err) {
     console.error('POST /logpoints error', err);
     return res.status(500).json({ error: String(err) });
   }
 });
 
-/* POST /api/opcua/logpoints/bulk
-   Body: [ { connectionId, nodeId, browseName, displayName, dataType, unit, samplingIntervalMs, isAlarm, decimals }, ... ]
-   Returns { count, errors: [{item, error}] }
-*/
-router.post('/logpoints/bulk', (req, res) => {
+/* POST /api/opcua/logpoints/bulk */
+router.post('/logpoints/bulk', async (req, res) => {
   try {
-    const items = Array.isArray(req.body) ? req.body : null;
-    if (!items) return res.status(400).json({ error: 'expected JSON array in request body' });
-
-    const all = readAll();
-    const now = new Date().toISOString();
-    const result = { count: 0, errors: [] };
-
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      if (!it || !it.connectionId || !it.nodeId) {
-        result.errors.push({ item: it && (it.nodeId || it.browseName) || `(index ${i})`, error: 'connectionId and nodeId required' });
-        continue;
-      }
-      try {
-        const rec = {
-          id: makeId(),
-          connectionId: it.connectionId,
-          nodeId: it.nodeId,
-          browseName: it.browseName || '',
-          displayName: it.displayName || '',
-          dataType: it.dataType || '',
-          unit: it.unit || '',
-          samplingIntervalMs: Number(it.samplingIntervalMs) || 1000,
-          isAlarm: !!it.isAlarm,
-          decimals: Number(it.decimals) >= 0 ? Number(it.decimals) : 2,
-          createdAt: now,
-          updatedAt: now
-        };
-        all.push(rec);
-        result.count++;
-      } catch (e2) {
-        result.errors.push({ item: it && (it.nodeId || it.browseName) || `(index ${i})`, error: String(e2) });
-      }
+    const arr = Array.isArray(req.body) ? req.body : (req.body && req.body.items) || [];
+    if (!Array.isArray(arr) || arr.length === 0) {
+      return res.status(400).json({ error: 'expected non-empty array in body' });
     }
-
-    writeAll(all);
-
-    return res.status(200).json(result);
+    const result = await safeCall(() => store.bulkCreate(arr));
+    if (Array.isArray(result)) {
+      return res.json({ count: result.length, items: result });
+    }
+    return res.json({ count: result && result.count ? result.count : arr.length });
   } catch (err) {
     console.error('POST /logpoints/bulk error', err);
     return res.status(500).json({ error: String(err) });
   }
 });
 
-/* PUT /api/opcua/logpoints/:id
-   Body: patch fields (displayName, unit, samplingIntervalMs, isAlarm, dataType, decimals)
-*/
-router.put('/logpoints/:id', (req, res) => {
+/* PUT /api/opcua/logpoints/:id */
+router.put('/logpoints/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    if (!id) return res.status(400).json({ error: 'missing id' });
     const patch = req.body || {};
-    const all = readAll();
-    const idx = all.findIndex(p => String(p.id) === String(id));
-    if (idx === -1) return res.status(404).json({ error: 'not found' });
-
-    const rec = all[idx];
-    const allowed = ['displayName', 'unit', 'samplingIntervalMs', 'isAlarm', 'dataType', 'decimals'];
-    allowed.forEach(k => {
-      if (patch[k] !== undefined) {
-        if (k === 'samplingIntervalMs' || k === 'decimals') {
-          rec[k] = Number(patch[k]) || (k === 'decimals' ? 2 : 1000);
-        } else if (k === 'isAlarm') {
-          rec[k] = !!patch[k];
-        } else {
-          rec[k] = patch[k];
-        }
-      }
-    });
-    rec.updatedAt = new Date().toISOString();
-    all[idx] = rec;
-    writeAll(all);
-    return res.json(rec);
+    const updated = await safeCall(() => store.update(id, patch));
+    if (!updated) return res.status(404).json({ error: 'not found' });
+    return res.json(updated);
   } catch (err) {
     console.error('PUT /logpoints/:id error', err);
     return res.status(500).json({ error: String(err) });
@@ -199,100 +97,210 @@ router.put('/logpoints/:id', (req, res) => {
 });
 
 /* DELETE /api/opcua/logpoints/:id */
-router.delete('/logpoints/:id', (req, res) => {
+router.delete('/logpoints/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    if (!id) return res.status(400).json({ error: 'missing id' });
-    const all = readAll();
-    const idx = all.findIndex(p => String(p.id) === String(id));
-    if (idx === -1) return res.status(404).json({ error: 'not found' });
-    const removed = all.splice(idx, 1);
-    writeAll(all);
-    return res.json({ removed: removed[0] });
+    const removed = await safeCall(() => store.remove(id));
+    if (!removed) return res.status(404).json({ error: 'not found' });
+    return res.json({ ok: true });
   } catch (err) {
     console.error('DELETE /logpoints/:id error', err);
     return res.status(500).json({ error: String(err) });
   }
 });
 
-/* ---------------------------------------------------------
-   NEU: POST /api/opcua/readValue
-   Body: { connectionId, nodeId }
-   Liefert: { nodeId, value } oder { error: '...' }
-   Implementierung: verbindet kurz mit dem OPC UA Server mittels node-opcua,
-   liest AttributeIds.Value und gibt den Wert zurück.
-   --------------------------------------------------------- */
+/* -----------------------------
+   Helper: resolve namespace URI -> index (uses session.read on i=2255)
+   ----------------------------- */
 
-let nodeOpcUaAvailable = true;
-try {
-  // optional require - falls node-opcua nicht installiert, fangen wir den Fehler ab
-  var { OPCUAClient, AttributeIds, MessageSecurityMode, SecurityPolicy } = require('node-opcua');
-  var fetch = global.fetch || require('node-fetch');
-} catch (e) {
-  nodeOpcUaAvailable = false;
-  console.error('node-opcua oder node-fetch nicht verfügbar:', e && e.message ? e.message : e);
+async function resolveNamespaceUriIfNeeded(session, nodeId) {
+  // matches "nsu=URI;i=123" or "URI;i=123"
+  const s = String(nodeId || '');
+  const m1 = s.match(/^\s*nsu=(.+);i=(\d+)\s*$/i);
+  const m2 = s.match(/^\s*(https?:\/\/[^;]+);i=(\d+)\s*$/i);
+  const match = m1 || m2;
+  if (!match) return nodeId;
+
+  const nsUri = match[1];
+  const identifier = Number(match[2]);
+
+  try {
+    const AttributeIds = opcua.AttributeIds || require('node-opcua').AttributeIds;
+    // read NamespaceArray (i=2255)
+    const nsRead = await session.read({ nodeId: 'i=2255', attributeId: AttributeIds.Value });
+    const nsArray = (nsRead && nsRead.value && nsRead.value.value) ? nsRead.value.value : null;
+    if (!Array.isArray(nsArray)) return nodeId;
+
+    const idx = nsArray.indexOf(nsUri);
+    if (idx >= 0) {
+      return `ns=${idx};i=${identifier}`;
+    }
+    return nodeId;
+  } catch (e) {
+    // if resolution fails for any reason, return original nodeId
+    return nodeId;
+  }
 }
 
-function policyFromArg(p) {
-  if (!p) return SecurityPolicy ? SecurityPolicy.None : null;
-  const s = String(p);
-  if (/none/i.test(s)) return SecurityPolicy.None;
-  if (/basic256sha256/i.test(s)) return SecurityPolicy.Basic256Sha256;
-  if (/basic256/i.test(s)) return SecurityPolicy.Basic256;
-  if (/basic128/i.test(s)) return SecurityPolicy.Basic128Rsa15;
-  return SecurityPolicy.None;
+/* Helper: fetch local connections config from this server
+   (calls the local /api/opcua/connections endpoint). */
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
+
+function fetchLocalConnections() {
+  return new Promise((resolve, reject) => {
+    const port = process.env.PORT || 3000;
+    const opts = {
+      hostname: '127.0.0.1',
+      port: port,
+      path: '/api/opcua/connections',
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    };
+    const req = http.request(opts, (res) => {
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data || '[]');
+          resolve(Array.isArray(json) ? json : []);
+        } catch (e) {
+          resolve([]);
+        }
+      });
+    });
+    req.on('error', (e) => {
+      resolve([]); // return empty on error
+    });
+    req.end();
+  });
 }
+
+/* -----------------------------
+   POST /api/opcua/readValue
+   - First tries a global handler: global.__processLoggerReadValue(connectionId, nodeId)
+   - If not present, and node-opcua is available, will:
+     * lookup connection info via local /api/opcua/connections
+     * create an OPC UA client/session to that endpoint
+     * attempt namespace-uri resolution if nodeId contains a URI form
+     * read attribute Value and return { nodeId, value, dataType? }
+   - If node-opcua not available and no global handler, returns 501.
+   ----------------------------- */
 
 router.post('/readValue', async (req, res) => {
-  if (!nodeOpcUaAvailable) return res.status(500).json({ error: 'node-opcua nicht verfügbar auf dem Server' });
-
-  const body = req.body || {};
-  const { connectionId, nodeId } = body;
-  if (!connectionId || !nodeId) return res.status(400).json({ error: 'connectionId and nodeId required' });
-
-  // Versuche, Connection-Metadaten lokal zu finden
-  let conn = null;
   try {
-    const r = await fetch('http://127.0.0.1:3000/api/opcua/connections');
-    if (r && r.ok) {
-      const list = await r.json();
-      conn = list.find(c => String(c.id) === String(connectionId) || String(c.endpoint) === String(connectionId));
+    const { connectionId, nodeId: rawNodeId } = req.body || {};
+    if (!connectionId || !rawNodeId) {
+      return res.status(400).json({ error: 'connectionId and nodeId required' });
     }
-  } catch (e) {
-    // ignore - wir nutzen connectionId als endpoint fallback
-  }
 
-  const endpoint = conn ? (conn.endpoint || connectionId) : connectionId;
-  const username = conn && conn.authentication ? conn.authentication.username : undefined;
-  const password = conn && conn.authentication ? conn.authentication.password : undefined;
-  const securityPolicy = conn && conn.securityPolicy ? conn.securityPolicy : 'None';
-  const isNone = String(securityPolicy || 'None').toLowerCase() === 'none';
+    // 1) prefer a global delegating handler if available (allows shared/persistent sessions)
+    if (typeof global.__processLoggerReadValue === 'function') {
+      try {
+        const out = await Promise.resolve(global.__processLoggerReadValue(connectionId, rawNodeId));
+        return res.json(out);
+      } catch (e) {
+        // continue to fallback if global handler failed
+        console.warn('global.__processLoggerReadValue failed:', e && e.message ? e.message : e);
+      }
+    }
 
-  const client = OPCUAClient.create({
-    endpointMustExist: false,
-    securityPolicy: policyFromArg(securityPolicy),
-    securityMode: isNone ? MessageSecurityMode.None : MessageSecurityMode.SignAndEncrypt,
-    connectionStrategy: { maxRetry: 0, initialDelay: 1000, maxDelay: 10000 }
-  });
+    // 2) if node-opcua not installed, bail out
+    if (!nodeOpcUaAvailable) {
+      return res.status(501).json({ error: 'readValue handler not implemented in this deployment (node-opcua missing)' });
+    }
 
-  let session;
-  try {
-    await client.connect(endpoint);
-    session = await client.createSession(username ? { userName: username, password } : null);
+    // 3) get connection config from local server (best-effort)
+    const conns = await fetchLocalConnections();
+    const conn = conns.find(c => String(c.id) === String(connectionId) || String(c.endpoint) === String(connectionId));
+    if (!conn || !conn.endpoint) {
+      return res.status(404).json({ error: 'connection config not found for connectionId' });
+    }
 
-    const dataValue = await session.read({ nodeId, attributeId: AttributeIds.Value });
-    let value = null;
-    if (dataValue && dataValue.value) value = dataValue.value.value;
+    // 4) build OPC UA client and session
+    const {
+      OPCUAClient,
+      AttributeIds,
+      ClientSession,
+      // MessageSecurityMode, SecurityPolicy
+    } = opcua;
 
-    try { await session.close(); } catch (e) { /* ignore */ }
-    try { await client.disconnect(); } catch (e) { /* ignore */ }
+    const client = OPCUAClient.create({
+      endpoint_must_exist: false,
+      connectionStrategy: {
+        maxRetry: 0
+      },
+      // keep the default timeouts; tune if you see timeouts
+    });
 
-    return res.json({ nodeId, value });
+    let session;
+    try {
+      const endpointUrl = conn.endpoint;
+
+      await client.connect(endpointUrl);
+
+      // identity: if authentication provided in connection config
+      let userIdentity = null;
+      if (conn.authentication && conn.authentication.username) {
+        userIdentity = {
+          type: opcua.UserTokenType.UserName,
+          userName: conn.authentication.username,
+          password: conn.authentication.password || ''
+        };
+      } else {
+        userIdentity = null; // anonymous
+      }
+
+      session = await client.createSession(userIdentity);
+
+      // 5) attempt namespace-uri resolution if needed
+      let nodeId = rawNodeId;
+      try {
+        nodeId = await resolveNamespaceUriIfNeeded(session, rawNodeId);
+      } catch (e) {
+        // ignore resolution failure, will try original nodeId
+        nodeId = rawNodeId;
+      }
+
+      // 6) do the read
+      const dataValue = await session.read({ nodeId: nodeId, attributeId: AttributeIds.Value });
+      // dataValue may be a Variant container: { value: { value: X, dataType: ... }, statusCode, sourceTimestamp }
+      let ret = { nodeId };
+
+      if (dataValue && dataValue.statusCode && dataValue.statusCode.name && dataValue.statusCode.name !== 'Good') {
+        // no value
+        ret.value = null;
+        ret.statusCode = String(dataValue.statusCode ? dataValue.statusCode.toString() : '');
+      } else {
+        // attempt to extract actual value
+        try {
+          ret.value = (dataValue && dataValue.value) ? dataValue.value.value : null;
+          // include dataType if available (as string or numeric)
+          if (dataValue && dataValue.value && dataValue.value.dataType !== undefined) {
+            ret.dataType = String(dataValue.value.dataType ? dataValue.value.dataType.toString() : '');
+          }
+          if (dataValue && dataValue.serverTimestamp) ret.serverTimestamp = dataValue.serverTimestamp;
+        } catch (e) {
+          ret.value = null;
+        }
+      }
+
+      // cleanup
+      try { await session.close(); } catch (e) {}
+      try { await client.disconnect(); } catch (e) {}
+
+      return res.json(ret);
+    } catch (err) {
+      try { if (session) await session.close(); } catch (e) {}
+      try { await client.disconnect(); } catch (e) {}
+      console.error('readValue OPC UA error', err);
+      return res.status(500).json({ error: String(err && err.message ? err.message : err) });
+    }
   } catch (err) {
-    try { if (session) await session.close(); } catch (e) { /* ignore */ }
-    try { await client.disconnect(); } catch (e) { /* ignore */ }
-    console.error('POST /readValue error', err && err.stack ? err.stack : err);
-    return res.status(500).json({ error: err && err.message ? err.message : String(err) });
+    console.error('POST /readValue error', err);
+    return res.status(500).json({ error: String(err) });
   }
 });
 
