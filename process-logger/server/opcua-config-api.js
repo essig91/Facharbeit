@@ -1,5 +1,5 @@
 /**
- * Minimaler Express-Router für OPC UA Verbindungs-Konfigurationen
+ * Minimaler Express-Router fï¿½r OPC UA Verbindungs-Konfigurationen
  * - CRUD: GET/POST/PUT/DELETE /api/opcua/connections
  * - Discovery: POST /api/opcua/discover  { endpoint }
  * - Trust: POST /api/opcua/trust { serverCertificateBase64, name }
@@ -7,12 +7,13 @@
  * Hinweise:
  * - Speichert configs in ../config/opcua-connections.json
  * - Legt trusted server-certs als PEM in /var/lib/process-logger/pki/trusted/certs an
- * - Logger-Service (user 'logger') muss Leserechte für config und Schreibrechte für PKI-Ordner haben
+ * - Logger-Service (user 'logger') muss Leserechte fï¿½r config und Schreibrechte fï¿½r PKI-Ordner haben
  */
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const { OPCUAClient } = require('node-opcua');
+const writerManager = require('../lib/writer-manager');
 
 const router = express.Router();
 
@@ -75,6 +76,9 @@ router.post('/connections', async (req, res) => {
     }, body);
     cfg.connections.push(entry);
     await writeConfig(cfg);
+    try { writerManager.createForConnection(entry); } catch (e) {
+      console.warn('writer-manager createForConnection error:', e && e.message ? e.message : String(e));
+    }
     res.status(201).json(entry);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -90,6 +94,9 @@ router.put('/connections/:id', async (req, res) => {
     if (idx === -1) return res.status(404).json({ error: 'not found' });
     cfg.connections[idx] = Object.assign(cfg.connections[idx], req.body);
     await writeConfig(cfg);
+    try { writerManager.updateForConnection(cfg.connections[idx]); } catch (e) {
+      console.warn('writer-manager updateForConnection error:', e && e.message ? e.message : String(e));
+    }
     res.json(cfg.connections[idx]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -103,6 +110,9 @@ router.delete('/connections/:id', async (req, res) => {
     const cfg = await readConfig();
     cfg.connections = (cfg.connections || []).filter(c => c.id !== id);
     await writeConfig(cfg);
+    try { await writerManager.removeForConnection(id); } catch (e) {
+      console.warn('writer-manager removeForConnection error:', e && e.message ? e.message : String(e));
+    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

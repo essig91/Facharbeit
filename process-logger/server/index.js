@@ -43,6 +43,10 @@ app.use('/api/opcua', opcuaBrowseRouter);
 const opcuaLogpointsRouter = require('../routes/opcua-logpoints');
 app.use('/api/opcua', opcuaLogpointsRouter);
 
+// test-push router (push measurement samples to writer)
+const testPushRouter = require('../routes/test-push');
+app.use('/api/opcua', testPushRouter);
+
 // Network API (apply network changes)
 // NOTE: Make sure this route is protected by your auth middleware in production.
 const networkApi = require('./network');
@@ -66,11 +70,26 @@ app.use(express.static(path.join(__dirname, '..', 'web')));
 
 const server = app.listen(PORT, () => {
   console.log(`process-logger listening on http://0.0.0.0:${PORT}`);
+
+  // Initialize writer-manager after server is ready to accept HTTP requests
+  const writerManager = require('../lib/writer-manager');
+  writerManager.initFromServer({
+    port: PORT,
+    dataDir: path.join(process.cwd(), 'data', 'measurements')
+  })
+    .then(() => console.log('writer-manager initialized'))
+    .catch(err => console.warn('writer-manager init error', err));
 });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
+const gracefulShutdown = async () => {
   console.log('Shutting down...');
+  try {
+    const writerManager = require('../lib/writer-manager');
+    await writerManager.closeAll();
+  } catch (e) {
+    console.error('Error closing writers', e);
+  }
   try {
     if (dbObj && typeof dbObj.close === 'function') {
       console.log('Closing DB...');
@@ -80,7 +99,9 @@ process.on('SIGINT', () => {
     console.error('Error closing DB', e);
   }
   server.close(() => process.exit(0));
-});
+};
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
 
 // init DB direkt beim Start
 try {
