@@ -14,7 +14,8 @@
 
 const http = require('http');
 const path = require('path');
-const MeasurementWriter = require('./measurement-writer');
+// Note: measurement-writer exports a factory function: createWriter(connectionId, opts)
+const createWriter = require('./measurement-writer');
 
 class WriterManager {
   constructor() {
@@ -30,12 +31,14 @@ class WriterManager {
     if (!conn || !conn.id) return;
     const id = String(conn.id);
     if (this._writers.has(id)) return this._writers.get(id);
-    const writer = new MeasurementWriter({
-      connectionId: id,
+
+    // Call the factory correctly: createWriter(connectionId, opts)
+    const writer = createWriter(id, {
       dataDir: this._defaultDataDir(),
       batchSize: this._opts.batchSize || 200,
       flushIntervalMs: this._opts.flushIntervalMs || 5000
     });
+
     this._writers.set(id, writer);
     console.log(`writer-manager: created writer for connection ${id}`);
     return writer;

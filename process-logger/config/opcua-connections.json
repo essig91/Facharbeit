@@ -1,7 +1,7 @@
 {
   "connections": [
     {
-      "id": "1770923800196",
+      "id": "1772560526994",
       "name": "BC1",
       "endpoint": "opc.tcp://192.168.0.10:4840",
       "securityPolicy": "None",
