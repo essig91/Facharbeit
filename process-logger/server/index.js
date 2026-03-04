@@ -12,6 +12,8 @@ require('dotenv').config();
 
 // DB initialisieren
 const { init: initDb } = require('./db'); // benutzt server/db.js
+const sessionManager = require('./opcua-session-manager');
+const logpointStore = require('../lib/logpoint-store');
 const dbPath = path.join(__dirname, '..', 'data', 'database.db');
 let dbObj = null; // wird nach init gesetzt
 
@@ -69,8 +71,17 @@ const server = app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('Shutting down...');
+  // Stop logpoint scheduler timers
+  for (const timer of logpointTimers.values()) clearInterval(timer);
+  logpointTimers.clear();
+  clearInterval(logpointSyncTimer);
+  try {
+    await sessionManager.closeAll();
+  } catch (e) {
+    console.error('Error closing OPC-UA sessions', e);
+  }
   try {
     if (dbObj && typeof dbObj.close === 'function') {
       console.log('Closing DB...');
@@ -91,6 +102,55 @@ try {
   // Falls DB nicht initialisiert werden kann, Prozess beeenden
   process.exit(1);
 }
+
+// Start OPC-UA session pruner (closes idle sessions after 5 min)
+sessionManager.startPrune();
+
+// --- Logpoint Polling Scheduler ---
+// Per-logpoint timers: Map<logpointId, NodeJS.Timer>
+const logpointTimers = new Map();
+let logpointSyncTimer = null;
+
+async function pollAndLog(lp) {
+  if (!dbObj) return;
+  try {
+    const result = await sessionManager.globalReadValue(lp.connectionId, lp.nodeId);
+    if (!result || result.value === undefined || result.value === null) return;
+    let v = result.value;
+    if (typeof v === 'boolean') v = v ? 1 : 0;
+    const numValue = Number(v);
+    if (isNaN(numValue)) return;
+    const ts = Date.now();
+    dbObj.insertTag(lp.id, lp.nodeId, lp.dataType || '');
+    dbObj.insertMeasurement(lp.id, ts, numValue);
+  } catch (_) { /* silently ignore per-logpoint errors */ }
+}
+
+function syncLogpointTimers() {
+  let logpoints = [];
+  try { logpoints = logpointStore.list(); } catch (_) { return; }
+
+  const existingIds = new Set(logpoints.map(lp => lp.id));
+  // Remove timers for deleted logpoints
+  for (const [id, timer] of logpointTimers) {
+    if (!existingIds.has(id)) {
+      clearInterval(timer);
+      logpointTimers.delete(id);
+    }
+  }
+  // Add timers for new logpoints
+  for (const lp of logpoints) {
+    if (!logpointTimers.has(lp.id)) {
+      const intervalMs = Math.max(Number(lp.samplingIntervalMs) || 1000, 100);
+      const timer = setInterval(() => pollAndLog(lp), intervalMs);
+      logpointTimers.set(lp.id, timer);
+    }
+  }
+}
+
+// Initial sync, then re-sync every 30 s to pick up added/removed logpoints
+syncLogpointTimers();
+logpointSyncTimer = setInterval(syncLogpointTimers, 30_000);
 
 // Einfacher Test‑API‑Endpoint: fügt eine Messung ein und liest sie wieder aus
 app.post('/api/measurements/test', (req, res) => {
