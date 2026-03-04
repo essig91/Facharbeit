@@ -704,7 +704,7 @@ async function doBrowse() {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(body)
-    }, 60000);
+    }, 120000);
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || JSON.stringify(j));
     browseNodes = j.nodes || [];

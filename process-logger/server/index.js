@@ -77,13 +77,89 @@ const server = app.listen(PORT, () => {
     port: PORT,
     dataDir: path.join(process.cwd(), 'data', 'measurements')
   })
-    .then(() => console.log('writer-manager initialized'))
+    .then(() => {
+      console.log('writer-manager initialized');
+
+      // --- Start logpoint scheduler integration (Polling) ---
+      // Requires: lib/logpoint-scheduler.js and lib/logpoint-store.js
+      try {
+        const createScheduler = require('../lib/logpoint-scheduler');
+        const logpointStore = require('../lib/logpoint-store');
+        const http = require('http');
+
+        function createLocalReadValueCaller(port) {
+          return async function readValue(connectionId, nodeId) {
+            const postData = JSON.stringify({ connectionId: String(connectionId), nodeId: String(nodeId) });
+            const opts = {
+              hostname: '127.0.0.1',
+              port: Number(port || process.env.PORT || 3000),
+              path: '/api/opcua/readValue',
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+              },
+              timeout: 8000
+            };
+            return new Promise((resolve, reject) => {
+              const req = http.request(opts, (res) => {
+                let data = '';
+                res.setEncoding('utf8');
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try {
+                    const json = JSON.parse(data || '{}');
+                    if (res.statusCode >= 400) return reject(new Error('readValue HTTP ' + res.statusCode + ' ' + (json && json.error ? json.error : '')));
+                    resolve(json);
+                  } catch (e) { reject(e); }
+                });
+              });
+              req.on('error', reject);
+              req.on('timeout', () => { req.destroy(new Error('timeout')); });
+              req.write(postData);
+              req.end();
+            });
+          };
+        }
+
+        const localPort = PORT;
+        const readValue = createLocalReadValueCaller(localPort);
+
+        const scheduler = createScheduler({
+          getLogpoints: async () => {
+            // logpoint-store exports list()
+            return logpointStore.list();
+          },
+          readValue,
+          writerManager
+        });
+
+        // Start scheduler (reload config every 60s)
+        scheduler.start(60000).catch(err => console.error('logpoint-scheduler start failed', err));
+
+        // store scheduler for graceful shutdown
+        if (!app.locals) app.locals = {};
+        app.locals.logpointScheduler = scheduler;
+
+        console.log('logpoint-scheduler started');
+      } catch (e) {
+        console.error('Failed to start logpoint-scheduler:', e && e.message ? e.message : e);
+      }
+      // --- End scheduler integration ---
+    })
     .catch(err => console.warn('writer-manager init error', err));
 });
 
 // Graceful shutdown
 const gracefulShutdown = async () => {
   console.log('Shutting down...');
+  try {
+    if (app.locals && app.locals.logpointScheduler) {
+      try { await app.locals.logpointScheduler.stop(); } catch (e) { console.warn('Error stopping scheduler', e); }
+    }
+  } catch (e) {
+    console.warn('Error during scheduler shutdown', e);
+  }
   try {
     const writerManager = require('../lib/writer-manager');
     await writerManager.closeAll();
