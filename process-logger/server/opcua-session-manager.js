@@ -96,6 +96,13 @@ async function readValueForConnection(conn, nodeId) {
     if (st) st.lastUsed = Date.now();
     return { nodeId, value };
   } catch (e) {
+    // Evict the broken session so the next caller gets a fresh one
+    const st = SESSIONS.get(conn.endpoint);
+    if (st) {
+      try { if (st.session) await st.session.close(); } catch (_) {}
+      try { if (st.client) await st.client.disconnect(); } catch (_) {}
+    }
+    SESSIONS.delete(conn.endpoint);
     throw e;
   }
 }

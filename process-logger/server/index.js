@@ -12,6 +12,8 @@ require('dotenv').config();
 
 // DB initialisieren
 const { init: initDb } = require('./db'); // benutzt server/db.js
+const sessionManager = require('./opcua-session-manager');
+const subscriptionManager = require('./opcua-subscription-manager');
 const dbPath = path.join(__dirname, '..', 'data', 'database.db');
 let dbObj = null; // wird nach init gesetzt
 
@@ -69,8 +71,18 @@ const server = app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('Shutting down...');
+  try {
+    await subscriptionManager.stop();
+  } catch (e) {
+    console.error('Error stopping subscription manager', e);
+  }
+  try {
+    await sessionManager.closeAll();
+  } catch (e) {
+    console.error('Error closing OPC-UA sessions', e);
+  }
   try {
     if (dbObj && typeof dbObj.close === 'function') {
       console.log('Closing DB...');
@@ -91,6 +103,12 @@ try {
   // Falls DB nicht initialisiert werden kann, Prozess beeenden
   process.exit(1);
 }
+
+// Start OPC-UA session pruner (closes idle sessions after 5 min)
+sessionManager.startPrune();
+
+// Start OPC-UA subscription-based data acquisition
+subscriptionManager.start(dbObj);
 
 // Einfacher Test‑API‑Endpoint: fügt eine Messung ein und liest sie wieder aus
 app.post('/api/measurements/test', (req, res) => {
