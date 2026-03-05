@@ -6,7 +6,7 @@
  * - Liest Logpoints aus logpoints.db
  * - Gruppiert nach connectionId
  * - Erstellt je Connection eine OPC UA ClientSubscription
- * - Schreibt empfangene Werte in die measurements-Tabelle in logpoints.db
+ * - Schreibt empfangene Werte in data/measurements/<connectionId>.db
  *
  * API:
  *   startAll()    – startet alle Subscriptions (einmalig beim Server-Start)
@@ -25,6 +25,7 @@ try {
 }
 
 const store = require('../lib/logpoint-store');
+const measurementStore = require('../lib/measurement-store');
 
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'opcua-connections.json');
 
@@ -117,9 +118,9 @@ async function connectAndSubscribe(conn, logpoints) {
             : null;
           const value = (raw === null || raw === undefined) ? null : String(raw);
           const quality = dataValue.statusCode ? dataValue.statusCode.toString() : 'Good';
-          store.insertMeasurement(lp.id, ts, value, quality);
+          measurementStore.insert(connectionId, lp.id, ts, value, quality);
         } catch (e) {
-          console.error(`opcua-logger: insertMeasurement Fehler für Logpoint ${lp.id} (${lp.nodeId}):`, e.message);
+          console.error(`opcua-logger: insert Fehler für Logpoint ${lp.id} (${lp.nodeId}):`, e.message);
         }
       });
 
@@ -176,6 +177,9 @@ async function stopAll() {
     try { if (state.client) await state.client.disconnect(); } catch (_) {}
   }
   active.clear();
+
+  // Messwert-DBs schließen
+  measurementStore.closeAll();
 }
 
 async function startAll() {
