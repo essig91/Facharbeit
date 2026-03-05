@@ -18,6 +18,7 @@ const express = require('express');
 const router = express.Router();
 
 const store = require('../lib/logpoint-store');
+const measurementStore = require('../lib/measurement-store');
 
 // node-opcua (optional)
 let nodeOpcUaAvailable = true;
@@ -128,10 +129,12 @@ const DEFAULT_MEASUREMENT_LIMIT = 1000;
 router.get('/logpoints/:id/measurements', (req, res) => {
   try {
     const id = req.params.id;
+    const lp = store.get(id);
+    if (!lp) return res.status(404).json({ error: 'Logpoint nicht gefunden' });
     const fromTs = req.query.from ? Number(req.query.from) : (Date.now() - DEFAULT_QUERY_WINDOW_MS);
     const toTs = req.query.to ? Number(req.query.to) : Date.now();
     const limit = req.query.limit ? Number(req.query.limit) : DEFAULT_MEASUREMENT_LIMIT;
-    const rows = store.queryMeasurements(id, fromTs, toTs, limit);
+    const rows = measurementStore.query(lp.connectionId, id, fromTs, toTs, limit);
     return res.json(rows);
   } catch (err) {
     console.error('GET /logpoints/:id/measurements error', err);

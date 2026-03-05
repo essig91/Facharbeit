@@ -32,6 +32,43 @@ const CONFIG_FILE = path.join(__dirname, '..', 'config', 'opcua-connections.json
 const RECONNECT_DELAY_MS = 30_000;
 const PUBLISHING_INTERVAL_MS = 500;
 
+/**
+ * Formatiert einen Rohwert gemäß der Logpoint-Konfiguration.
+ *
+ * Regeln:
+ *  - null/undefined  → null (kein Wert)
+ *  - isAlarm=true    → String-Darstellung ohne Rundung (Alarm-Zustand)
+ *  - dataType Boolean → String-Darstellung ohne Rundung
+ *  - Numerischer Wert → auf lp.decimals Nachkommastellen gerundet
+ *  - Alles andere    → String-Darstellung unverändert
+ *
+ * @param {object} lp          Logpoint-Konfiguration
+ * @param {*}      rawValue    Rohwert vom OPC UA Server
+ * @returns {string|null}
+ */
+function formatValue(lp, rawValue) {
+  if (rawValue === null || rawValue === undefined) return null;
+
+  const dt = (lp.dataType || '').toLowerCase();
+
+  // Alarm-Logpoints und boolesche Typen: keine Rundung
+  if (lp.isAlarm || dt === 'boolean') {
+    return String(rawValue);
+  }
+
+  // Numerischer Wert: auf konfigurierte Dezimalstellen runden
+  const num = Number(rawValue);
+  if (!isNaN(num)) {
+    const decimals = (lp.decimals !== undefined && lp.decimals !== null)
+      ? Number(lp.decimals)
+      : 2;
+    return String(parseFloat(num.toFixed(decimals)));
+  }
+
+  // Nicht-numerisch (z. B. String, Datum): unverändert als String speichern
+  return String(rawValue);
+}
+
 // connectionId -> { client, session, subscription }
 const active = new Map();
 const reconnectTimers = new Map();
@@ -116,7 +153,8 @@ async function connectAndSubscribe(conn, logpoints) {
           const raw = (dataValue.value && dataValue.value.value !== undefined)
             ? dataValue.value.value
             : null;
-          const value = (raw === null || raw === undefined) ? null : String(raw);
+          // Wert gemäß Logpoint-Konfiguration formatieren (Dezimalstellen, Alarm, Datentyp)
+          const value = formatValue(lp, raw);
           const quality = dataValue.statusCode ? dataValue.statusCode.toString() : 'Good';
           measurementStore.insert(connectionId, lp.id, ts, value, quality);
         } catch (e) {

@@ -193,6 +193,18 @@ function openDb() {
   // Ergänze fehlende Spalten bei älteren DBs (Migration helper)
   ensureColumns(db);
 
+  // Migration: measurements-Tabelle aus logpoints.db entfernen (Messwerte gehören in data/measurements/)
+  try {
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='measurements'").all();
+    if (tables.length > 0) {
+      db.prepare('DROP INDEX IF EXISTS idx_measurements_logpoint_ts').run();
+      db.prepare('DROP TABLE measurements').run();
+      console.info('logpoint-store: measurements-Tabelle aus logpoints.db entfernt');
+    }
+  } catch (e) {
+    console.warn('logpoint-store: Konnte measurements-Tabelle nicht entfernen:', e && e.message);
+  }
+
   // Migration: normalisiere vorhandene dataType-Werte (idempotent)
   try {
     migrateNormalizeDataTypes(db);
