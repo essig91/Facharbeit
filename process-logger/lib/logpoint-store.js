@@ -163,6 +163,7 @@ function openDb() {
 
   const db = new Database(dbPath);
   try { db.pragma('journal_mode = WAL'); } catch (e) {}
+  try { db.pragma('synchronous = NORMAL'); } catch (e) {}
 
   // Basis-Schema (enthält decimals und updatedAt). Wenn die Tabelle bereits existiert,
   // wird CREATE TABLE IF NOT EXISTS die bestehende Struktur nicht verändern.
@@ -183,6 +184,15 @@ function openDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_logpoints_connectionId ON logpoints(connectionId);
     CREATE INDEX IF NOT EXISTS idx_logpoints_nodeId ON logpoints(nodeId);
+
+    CREATE TABLE IF NOT EXISTS measurements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      logpoint_id TEXT NOT NULL,
+      ts INTEGER NOT NULL,
+      value TEXT,
+      quality TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_measurements_logpoint_ts ON measurements(logpoint_id, ts);
   `);
 
   // Ergänze fehlende Spalten bei älteren DBs (Migration helper)
@@ -328,5 +338,31 @@ module.exports = {
     const stmt = db.prepare('DELETE FROM logpoints WHERE id = @id');
     const info = stmt.run({ id: String(id) });
     return info.changes > 0;
+  },
+
+  /* ---- Measurements ---- */
+
+  insertMeasurement(logpointId, ts, value, quality) {
+    const valStr = (value === null || value === undefined) ? null : String(value);
+    const stmt = db.prepare(
+      'INSERT INTO measurements(logpoint_id, ts, value, quality) VALUES (?, ?, ?, ?)'
+    );
+    stmt.run(logpointId, ts, valStr, quality || null);
+  },
+
+  queryMeasurements(logpointId, fromTs, toTs, limit) {
+    const lim = Number(limit) || 1000;
+    const stmt = db.prepare(
+      'SELECT id, logpoint_id, ts, value, quality FROM measurements WHERE logpoint_id = ? AND ts BETWEEN ? AND ? ORDER BY ts LIMIT ?'
+    );
+    return stmt.all(logpointId, fromTs, toTs, lim);
+  },
+
+  queryMeasurementsAll(fromTs, toTs, limit) {
+    const lim = Number(limit) || 1000;
+    const stmt = db.prepare(
+      'SELECT id, logpoint_id, ts, value, quality FROM measurements WHERE ts BETWEEN ? AND ? ORDER BY ts LIMIT ?'
+    );
+    return stmt.all(fromTs, toTs, lim);
   }
 };

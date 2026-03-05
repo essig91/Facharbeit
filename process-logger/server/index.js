@@ -4,16 +4,12 @@
   Main Express bootstrap for process-logger
   - mounts API routers under /api/opcua
   - ensures the readValue router (opcua-read.js) is mounted so frontend calls to /api/opcua/readValue work
+  - starts OPC UA subscription-based logger (opcua-logger.js)
 */
 
 const express = require('express');
 const path = require('path');
 require('dotenv').config();
-
-// DB initialisieren
-const { init: initDb } = require('./db'); // benutzt server/db.js
-const dbPath = path.join(__dirname, '..', 'data', 'database.db');
-let dbObj = null; // wird nach init gesetzt
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +60,9 @@ app.get('/health', (req, res) => {
 // Serve static frontend (if any)
 app.use(express.static(path.join(__dirname, '..', 'web')));
 
+// OPC UA Logger laden
+const opcuaLogger = require('./opcua-logger');
+
 const server = app.listen(PORT, () => {
   console.log(`process-logger listening on http://0.0.0.0:${PORT}`);
 });
@@ -71,45 +70,17 @@ const server = app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('Shutting down...');
-  try {
-    if (dbObj && typeof dbObj.close === 'function') {
-      console.log('Closing DB...');
-      dbObj.close();
-    }
-  } catch (e) {
-    console.error('Error closing DB', e);
-  }
-  server.close(() => process.exit(0));
+  opcuaLogger.stopAll().finally(() => {
+    server.close(() => process.exit(0));
+  });
 });
 
-// init DB direkt beim Start
-try {
-  dbObj = initDb(dbPath);
-  console.log('Database initialized at', dbPath);
-} catch (err) {
-  console.error('Failed to initialize DB:', err);
-  // Falls DB nicht initialisiert werden kann, Prozess beeenden
-  process.exit(1);
-}
-
-// Einfacher Test‑API‑Endpoint: fügt eine Messung ein und liest sie wieder aus
-app.post('/api/measurements/test', (req, res) => {
-  if (!dbObj) return res.status(500).json({ ok: false, error: 'DB not initialized' });
-
-  const tag = req.body && req.body.tag ? req.body.tag : 'testTag';
-  const value = req.body && typeof req.body.value === 'number' ? req.body.value : Math.round(Math.random() * 1000) / 10;
-  const ts = Date.now();
-
-  try {
-    // Falls Tag noch nicht existiert, wird es eingefügt (INSERT OR IGNORE)
-    dbObj.insertTag(tag, `ns=1;s=${tag}`, 'Double');
-
-    // Messung einfügen
-    dbObj.insertMeasurement(tag, ts, value);
-
-    return res.json({ ok: true, tag, ts, value });
-  } catch (e) {
-    console.error('measurements/test error', e);
-    return res.status(500).json({ ok: false, error: String(e) });
-  }
+// OPC UA Logger starten (nach Server-Start, damit API-Routen bereits verfügbar sind)
+server.once('listening', () => {
+  opcuaLogger.startAll().catch((err) => {
+    console.error('opcua-logger: Startfehler:', err && err.message ? err.message : err);
+  });
 });
+
+// Logger global verfügbar machen (für Routen-Trigger nach Logpoint-Änderungen)
+global.__opcuaLogger = opcuaLogger;

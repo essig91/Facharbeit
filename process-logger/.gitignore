@@ -1,0 +1,18 @@
+# Node.js
+node_modules/
+
+# SQLite Datenbank-Dateien (Binärdateien, nicht im Repository)
+*.db
+*.db-shm
+*.db-wal
+
+# Umgebungsvariablen
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
