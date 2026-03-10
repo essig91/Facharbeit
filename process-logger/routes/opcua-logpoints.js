@@ -18,6 +18,7 @@ const express = require('express');
 const router = express.Router();
 
 const store = require('../lib/logpoint-store');
+const measurementStore = require('../lib/measurement-store');
 
 // node-opcua (optional)
 let nodeOpcUaAvailable = true;
@@ -40,6 +41,15 @@ function safeCall(fn) {
   }
 }
 
+/* Helper: Logger-Neustart nach Logpoint-Konfigurationsänderungen */
+function triggerLoggerRestart() {
+  if (typeof global.__opcuaLogger === 'object' && typeof global.__opcuaLogger.restartAll === 'function') {
+    global.__opcuaLogger.restartAll().catch((e) => {
+      console.error('triggerLoggerRestart Fehler:', e && e.message ? e.message : e);
+    });
+  }
+}
+
 /* GET /api/opcua/logpoints */
 router.get('/logpoints', async (req, res) => {
   try {
@@ -57,6 +67,7 @@ router.post('/logpoints', async (req, res) => {
   try {
     const obj = req.body || {};
     const created = await safeCall(() => store.create(obj));
+    triggerLoggerRestart();
     return res.status(201).json(created);
   } catch (err) {
     console.error('POST /logpoints error', err);
@@ -89,6 +100,7 @@ router.put('/logpoints/:id', async (req, res) => {
     const patch = req.body || {};
     const updated = await safeCall(() => store.update(id, patch));
     if (!updated) return res.status(404).json({ error: 'not found' });
+    triggerLoggerRestart();
     return res.json(updated);
   } catch (err) {
     console.error('PUT /logpoints/:id error', err);
@@ -102,9 +114,44 @@ router.delete('/logpoints/:id', async (req, res) => {
     const id = req.params.id;
     const removed = await safeCall(() => store.remove(id));
     if (!removed) return res.status(404).json({ error: 'not found' });
+    triggerLoggerRestart();
     return res.json({ ok: true });
   } catch (err) {
     console.error('DELETE /logpoints/:id error', err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+/* GET /api/opcua/logpoints/:id/measurements */
+const DEFAULT_QUERY_WINDOW_MS = 60 * 60 * 1000; // 1 Stunde
+const DEFAULT_MEASUREMENT_LIMIT = 1000;
+
+router.get('/logpoints/:id/measurements', (req, res) => {
+  try {
+    const id = req.params.id;
+    const lp = store.get(id);
+    if (!lp) return res.status(404).json({ error: 'Logpoint nicht gefunden' });
+    const fromTs = req.query.from ? Number(req.query.from) : (Date.now() - DEFAULT_QUERY_WINDOW_MS);
+    const toTs = req.query.to ? Number(req.query.to) : Date.now();
+    const limit = req.query.limit ? Number(req.query.limit) : DEFAULT_MEASUREMENT_LIMIT;
+    const rows = measurementStore.query(lp.connectionId, id, fromTs, toTs, limit);
+    return res.json(rows);
+  } catch (err) {
+    console.error('GET /logpoints/:id/measurements error', err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+/* POST /api/opcua/logger/restart – startet alle OPC UA Subscriptions neu */
+router.post('/logger/restart', async (req, res) => {
+  try {
+    if (typeof global.__opcuaLogger === 'object' && typeof global.__opcuaLogger.restartAll === 'function') {
+      await global.__opcuaLogger.restartAll();
+      return res.json({ ok: true });
+    }
+    return res.status(503).json({ error: 'Logger nicht verfügbar' });
+  } catch (err) {
+    console.error('POST /logger/restart error', err);
     return res.status(500).json({ error: String(err) });
   }
 });

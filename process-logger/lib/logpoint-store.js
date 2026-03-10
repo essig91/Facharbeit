@@ -11,6 +11,9 @@
  *  - update(id, patch)
  *  - remove(id)
  *
+ * Messwerte werden NICHT hier gespeichert – dafür ist lib/measurement-store.js
+ * zuständig (data/measurements/<connectionId>.db).
+ *
  * Verhalten:
  *  - Erstellt DB + Tabelle falls nicht vorhanden.
  *  - Prüft beim Start missing columns (z. B. 'decimals', 'updatedAt') und ergänzt sie per ALTER TABLE.
@@ -163,6 +166,7 @@ function openDb() {
 
   const db = new Database(dbPath);
   try { db.pragma('journal_mode = WAL'); } catch (e) {}
+  try { db.pragma('synchronous = NORMAL'); } catch (e) {}
 
   // Basis-Schema (enthält decimals und updatedAt). Wenn die Tabelle bereits existiert,
   // wird CREATE TABLE IF NOT EXISTS die bestehende Struktur nicht verändern.
@@ -183,10 +187,23 @@ function openDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_logpoints_connectionId ON logpoints(connectionId);
     CREATE INDEX IF NOT EXISTS idx_logpoints_nodeId ON logpoints(nodeId);
+
   `);
 
   // Ergänze fehlende Spalten bei älteren DBs (Migration helper)
   ensureColumns(db);
+
+  // Migration: measurements-Tabelle aus logpoints.db entfernen (Messwerte gehören in data/measurements/)
+  try {
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='measurements'").all();
+    if (tables.length > 0) {
+      db.prepare('DROP INDEX IF EXISTS idx_measurements_logpoint_ts').run();
+      db.prepare('DROP TABLE measurements').run();
+      console.info('logpoint-store: measurements-Tabelle aus logpoints.db entfernt');
+    }
+  } catch (e) {
+    console.warn('logpoint-store: Konnte measurements-Tabelle nicht entfernen:', e && e.message);
+  }
 
   // Migration: normalisiere vorhandene dataType-Werte (idempotent)
   try {
