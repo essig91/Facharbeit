@@ -48,6 +48,10 @@ app.use('/api/network', networkApi);
 const ntpApi = require('./ntp-api');
 app.use('/api', ntpApi);
 
+// Settings API (GET/PUT /api/settings)
+const settingsApi = require('./settings');
+app.use('/api/settings', settingsApi);
+
 // Health endpoint
 app.get('/health', (req, res) => {
   res.json({

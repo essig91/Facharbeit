@@ -1,0 +1,2492 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Datenarchiv</title>
+  <link rel="stylesheet" href="/_shell.css">
+  <script src="/_nav-loader.js" defer></script>
+  <script src="/_theme-loader.js" defer></script>
+  <style>
+    .page-wrapper { max-width: 1400px; margin: 1rem auto; }
+    .toolbar { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin:.8rem 0; }
+    .mode-btn { min-width: 2.5rem; }
+    .mode-btn.active { background: var(--accent); color: var(--accent-contrast); }
+    .panel-grid { display:grid; gap:.8rem; grid-template-columns: 1fr; }
+    .panel-grid.mode-2 { grid-template-columns: 1fr 1fr; }
+    .panel-grid.mode-3 { grid-template-columns: 1fr 1fr; }
+    .panel-grid.mode-4 { grid-template-columns: 1fr 1fr; }
+    .archive-panel { padding: .8rem; }
+    .archive-head { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:.5rem; margin-bottom:.5rem; }
+    .head-title-wrap { display:flex; align-items:center; gap:.45rem; min-width:0; }
+    .panel-title { margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .panel-notice {
+      display:none;
+      font-size:.8rem;
+      color:#1f6e3d;
+      background:#eaf8ef;
+      border:1px solid #b9e7cb;
+      border-radius:999px;
+      padding:.1rem .45rem;
+      white-space:nowrap;
+    }
+    .panel-notice.visible { display:inline-block; }
+    .head-actions { display:flex; gap:.4rem; align-items:center; justify-content:flex-end; }
+    .live-controls { display:flex; gap:.5rem; align-items:center; justify-content:center; justify-self:center; }
+    .trend-wrap .icon-btn {
+      width:2.15rem !important;
+      min-width:2.15rem !important;
+      height:2.15rem !important;
+      padding:0 !important;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      aspect-ratio:1 / 1;
+      position:relative;
+    }
+    .trend-wrap .icon-btn svg { width:1.95rem; height:1.95rem; stroke:currentColor; fill:none; stroke-width:2.35; stroke-linecap:round; stroke-linejoin:round; }
+    .trend-wrap .export-format-select {
+      height:2.15rem;
+      border:1px solid #c7d1e2;
+      border-radius:6px;
+      padding:0 .35rem;
+      background:#fff;
+      color:#233248;
+      font-size:.85rem;
+    }
+    .embed-config-controls {
+      display:none;
+      align-items:center;
+      gap:.35rem;
+    }
+    .embed-config-select {
+      height:2.15rem;
+      border:1px solid #c7d1e2;
+      border-radius:6px;
+      padding:0 .35rem;
+      background:#fff;
+      color:#233248;
+      font-size:.85rem;
+      min-width:17rem;
+      max-width:24rem;
+    }
+    .trend-wrap .icon-btn[data-tip]:hover::after {
+      content: attr(data-tip);
+      position:absolute;
+      bottom:calc(100% + 6px);
+      left:50%;
+      transform:translateX(-50%);
+      background:rgba(20, 27, 38, 0.92);
+      color:#fff;
+      border-radius:6px;
+      padding:.2rem .35rem;
+      font-size:.75rem;
+      white-space:nowrap;
+      pointer-events:none;
+      z-index:8;
+    }
+    .control-grid { display:grid; grid-template-columns: 1fr 1fr; gap:.6rem; }
+    .control-grid > label { display:flex; flex-direction:column; gap:.25rem; font-size:.9rem; }
+    .checklist {
+      min-height: 8rem;
+      max-height: 15rem;
+      overflow: auto;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: .35rem;
+      background: #fff;
+    }
+    .check-item {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: .35rem;
+      padding: .2rem .25rem;
+      border-radius: 4px;
+    }
+    .check-item:hover { background: rgba(43,111,179,0.06); }
+    .check-item input { accent-color: var(--accent); }
+    .check-item .label-text { flex:1; min-width:0; }
+    .check-item .lp-color {
+      display:none;
+      width:1.8rem;
+      height:1.5rem;
+      border:none;
+      background:none;
+      cursor:pointer;
+      padding:0;
+    }
+    .archive-panel.trend-enabled .check-item .lp-color { display:inline-block; }
+    .pick-tools { display:flex; gap:.35rem; margin-bottom:.35rem; flex-wrap:wrap; }
+    .time-row { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+    .quick-btns { display:flex; gap:.35rem; flex-wrap:wrap; }
+    .date-range { display:flex; gap:.4rem; align-items:center; flex-wrap:nowrap; }
+    .date-range input[type="datetime-local"] { min-width: 13rem; }
+    .table-wrap { max-height: 420px; overflow:auto; margin-top:.6rem; border:1px solid #e5e5e5; border-radius:6px; }
+    .archive-panel.table-collapsed .table-wrap { display:none; }
+    .table-collapse-row { margin-top:.55rem; display:flex; align-items:center; gap:.25rem; }
+    .table-collapse-btn { width:1.8rem; min-width:1.8rem; height:1.8rem; padding:.2rem; display:inline-flex; align-items:center; justify-content:center; }
+    .table-collapse-btn svg { width:1rem; height:1rem; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+    .table-wrap table { width:100%; border-collapse: collapse; }
+    .table-wrap th, .table-wrap td { border:1px solid #eee; padding:.35rem .45rem; font-size:.88rem; }
+    .table-wrap td { font-family: monospace; }
+    .muted-small { color:var(--text-muted); font-size:.9rem; }
+    .trend-wrap {
+      margin-top:.6rem;
+      border:1px solid #dfe5f0;
+      border-radius:6px;
+      padding:.5rem;
+      display:none;
+      background:#fff;
+      position:relative;
+    }
+    .archive-panel.trend-enabled .trend-wrap { display:block; }
+    .trend-toggle-row { margin-top:.55rem; display:flex; align-items:center; gap:.25rem; }
+    .trend-toggle-btn { width:1.8rem; min-width:1.8rem; height:1.8rem; padding:.2rem; display:inline-flex; align-items:center; justify-content:center; }
+    .trend-toggle-btn svg { width:1rem; height:1rem; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+    .trend-svg {
+      width:100%;
+      height:260px;
+      display:block;
+      border:1px solid #edf1f6;
+      border-radius:4px;
+      background:linear-gradient(to bottom, #ffffff, #fbfcff);
+    }
+    .trend-note { margin-top:.4rem; font-size:.85rem; color:var(--text-muted); }
+    .trend-legend { display:flex; flex-wrap:wrap; gap:.35rem .75rem; margin-top:.35rem; }
+    .trend-legend-item { display:inline-flex; align-items:center; gap:.3rem; font-size:.82rem; color:#2b3b50; }
+    .trend-legend-swatch { width:12px; height:3px; border-radius:2px; display:inline-block; }
+    .trend-tooltip {
+      position:absolute;
+      z-index:6;
+      background:rgba(20, 27, 38, 0.94);
+      color:#fff;
+      border-radius:6px;
+      padding:.35rem .45rem;
+      font-size:.8rem;
+      line-height:1.25;
+      pointer-events:none;
+      white-space:nowrap;
+      box-shadow:0 6px 18px rgba(0,0,0,.25);
+      display:none;
+    }
+    @media (max-width: 1050px) {
+      .panel-grid.mode-2, .panel-grid.mode-3, .panel-grid.mode-4 { grid-template-columns: 1fr; }
+      .control-grid { grid-template-columns: 1fr; }
+      .archive-head { grid-template-columns: 1fr; }
+      .head-title-wrap { flex-wrap:wrap; }
+      .head-actions { justify-content:flex-start; }
+      .live-controls { justify-self:stretch; justify-content:flex-start; }
+    }
+    body.embed-trend-mode #nav-placeholder,
+    body.embed-trend-mode .side-nav,
+    body.embed-trend-mode .toolbar,
+    body.embed-trend-mode h1,
+    body.embed-trend-mode .page-wrapper > .muted-small {
+      display:none !important;
+    }
+    body.embed-trend-mode .app-shell {
+      display:block !important;
+    }
+    body.embed-trend-mode .main-area {
+      margin:0 !important;
+      padding:0 !important;
+      max-width:none !important;
+      width:100% !important;
+    }
+    body.embed-trend-mode .page-wrapper { max-width: 1100px; margin: .6rem auto; }
+    body.embed-trend-mode .embed-config-controls { display:inline-flex !important; }
+    body.embed-trend-mode .conn-control,
+    body.embed-trend-mode .lp-control,
+    body.embed-trend-mode .table-collapse-row,
+    body.embed-trend-mode .table-wrap,
+    body.embed-trend-mode .trend-toggle-row,
+    body.embed-trend-mode [data-action="export"],
+    body.embed-trend-mode .panel-config-actions,
+    body.embed-trend-mode .export-format-select {
+      display:none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav id="nav-placeholder" class="side-nav" aria-label="Seitennavigation"></nav>
+    <main class="main-area">
+      <div class="page-wrapper">
+        <h1 style="margin:.2rem 0;">Datenarchiv</h1>
+        <div class="muted-small">Mehrere Verbindungen, Logpoints und Zeitbereiche kombinieren. Vergleichsansicht mit bis zu 4 Tabellen.</div>
+
+        <div class="toolbar">
+          <span>Vergleichsmodus:</span>
+          <button class="btn mode-btn active" data-mode="1">1</button>
+          <button class="btn mode-btn" data-mode="2">2</button>
+          <button class="btn mode-btn" data-mode="3">3</button>
+          <button class="btn mode-btn" data-mode="4">4</button>
+          <div class="spacer"></div>
+          <button id="loadAllBtn" class="btn btn--primary">Alle sichtbaren Tabellen laden</button>
+        </div>
+
+        <div id="panelGrid" class="panel-grid mode-1"></div>
+      </div>
+    </main>
+  </div>
+
+<script>
+const api = (p) => '/api/opcua' + p;
+const panelGrid = document.getElementById('panelGrid');
+const loadAllBtn = document.getElementById('loadAllBtn');
+const ARCHIVE_CFG_STORAGE_KEY = 'opcua.archiveTrendConfigs.v1';
+const pageParams = new URLSearchParams(location.search);
+const EMBED_MODE = pageParams.get('embedTrend') === '1';
+const EMBED_CFG_PARAM = pageParams.get('trendCfg') || '';
+
+let mode = 1;
+let connections = [];
+let logpoints = [];
+let connNameById = new Map();
+let unitByLogpointId = new Map();
+let decimalsByLogpointId = new Map();
+const panelState = new WeakMap();
+const panelNoticeTimers = new WeakMap();
+const panelConfigs = new Map();
+const DEFAULT_COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd', '#17becf', '#8c564b'];
+
+function getUnitForLogpointId(lpId) {
+  const u = unitByLogpointId.get(String(lpId));
+  return u ? String(u) : '';
+}
+
+function withUnit(value, unit) {
+  const base = (value === null || value === undefined) ? '' : String(value);
+  const u = unit ? String(unit).trim() : '';
+  if (!base || !u) return base;
+  return `${base} ${u}`;
+}
+
+function formatNumericForLogpoint(lpId, numVal) {
+  if (!Number.isFinite(numVal)) return String(numVal ?? '');
+  const d = decimalsByLogpointId.get(String(lpId));
+  if (Number.isInteger(d) && d >= 0 && d <= 12) {
+    return numVal.toFixed(d);
+  }
+  return String(numVal);
+}
+
+function normalizeTrendValue(raw) {
+  if (raw === true) return { ok: true, value: 1, isBoolean: true, display: 'true' };
+  if (raw === false) return { ok: true, value: 0, isBoolean: true, display: 'false' };
+
+  const s = String(raw === null || raw === undefined ? '' : raw).trim().toLowerCase();
+  if (s) {
+    if (s === 'true' || s === 'wahr' || s === 'on' || s === 'ein') {
+      return { ok: true, value: 1, isBoolean: true, display: 'true' };
+    }
+    if (s === 'false' || s === 'falsch' || s === 'off' || s === 'aus') {
+      return { ok: true, value: 0, isBoolean: true, display: 'false' };
+    }
+  }
+
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return { ok: false, value: null, isBoolean: false, display: '' };
+
+  if (s === '1' || s === '0') {
+    return { ok: true, value: n, isBoolean: true, display: n === 1 ? 'true' : 'false' };
+  }
+
+  return { ok: true, value: n, isBoolean: false, display: String(n) };
+}
+
+function makeDefaultPanelConfig() {
+  return {
+    selectedConnIds: [],
+    selectedLpIds: [],
+    fromTs: Date.now() - 3600_000,
+    toTs: Date.now(),
+    relativeRangeMs: 3600_000,
+    limit: 100000,
+    trendEnabled: false,
+    colorByLogpoint: {},
+    lastRows: [],
+    lastCursorTs: null,
+    liveEnabled: false,
+    liveMs: 5000,
+    trendViewport: null,
+    tableCollapsed: false,
+    exportFormat: 'svg',
+    activeConfigName: ''
+  };
+}
+
+function clampMode(v) {
+  return Math.max(1, Math.min(4, Number(v) || 1));
+}
+
+function getStoredPanelConfigs() {
+  try {
+    const raw = localStorage.getItem(ARCHIVE_CFG_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function getStoredPanelConfigNames() {
+  return Object.keys(getStoredPanelConfigs()).sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+}
+
+function setStoredArchiveConfigs(configs) {
+  localStorage.setItem(ARCHIVE_CFG_STORAGE_KEY, JSON.stringify(configs || {}));
+}
+
+function encodeBase64UrlUtf8(input) {
+  try {
+    const b64 = btoa(unescape(encodeURIComponent(String(input || ''))));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  } catch (_) {
+    return '';
+  }
+}
+
+function decodeBase64UrlUtf8(input) {
+  try {
+    const norm = String(input || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padLen = (4 - (norm.length % 4)) % 4;
+    const padded = norm + '='.repeat(padLen);
+    return decodeURIComponent(escape(atob(padded)));
+  } catch (_) {
+    return '';
+  }
+}
+
+function getPanelIndex(panelEl) {
+  const idx = Number(panelEl && panelEl.getAttribute('data-panel-index'));
+  return Number.isInteger(idx) && idx > 0 ? idx : 1;
+}
+
+function serializePanelConfig(st, panelEl) {
+  const src = st || makeDefaultPanelConfig();
+  const base = makeDefaultPanelConfig();
+  const rawFrom = Number(src.fromTs);
+  const rawTo = Number(src.toTs);
+  const fallbackRangeMs = Math.max(60_000, base.toTs - base.fromTs);
+  const computedRangeMs = (Number.isFinite(rawFrom) && Number.isFinite(rawTo) && rawTo > rawFrom)
+    ? (rawTo - rawFrom)
+    : fallbackRangeMs;
+  const relMs = Math.max(60_000, Number(src.relativeRangeMs) || computedRangeMs);
+  const out = Object.assign(base, {
+    selectedConnIds: Array.isArray(src.selectedConnIds) ? src.selectedConnIds.map(String) : [],
+    selectedLpIds: Array.isArray(src.selectedLpIds) ? src.selectedLpIds.map(String) : [],
+    fromTs: Number(src.fromTs) || base.fromTs,
+    toTs: Number(src.toTs) || base.toTs,
+    relativeRangeMs: relMs,
+    limit: Number(src.limit) || base.limit,
+    trendEnabled: !!src.trendEnabled,
+    colorByLogpoint: Object.assign({}, src.colorByLogpoint || {}),
+    liveEnabled: !!src.liveEnabled,
+    liveMs: Math.max(1000, Number(src.liveMs) || base.liveMs),
+    trendViewport: (src.trendViewport && Number.isFinite(src.trendViewport.minTs) && Number.isFinite(src.trendViewport.maxTs))
+      ? { minTs: Number(src.trendViewport.minTs), maxTs: Number(src.trendViewport.maxTs) }
+      : null,
+    tableCollapsed: !!src.tableCollapsed,
+    exportFormat: String(src.exportFormat || 'svg'),
+    activeConfigName: String(src.activeConfigName || '')
+  });
+  if (panelEl) {
+    out.tableCollapsed = panelEl.classList.contains('table-collapsed');
+    const fmtSel = panelEl.querySelector('.export-format-select');
+    out.exportFormat = (fmtSel && fmtSel.value) ? fmtSel.value : out.exportFormat;
+  }
+  return out;
+}
+
+function normalizePanelSnapshot(input) {
+  return serializePanelConfig(input || null, null);
+}
+
+function syncAllPanelsStateFromUi() {
+  const panels = Array.from(panelGrid.querySelectorAll('.archive-panel'));
+  for (const panel of panels) {
+    syncPanelStateFromInputs(panel);
+    const st = panelState.get(panel);
+    if (!st) continue;
+    st.colorByLogpoint = Object.assign({}, getLogpointColors(panel));
+    st.tableCollapsed = panel.classList.contains('table-collapsed');
+    const fmtSel = panel.querySelector('.export-format-select');
+    st.exportFormat = (fmtSel && fmtSel.value) ? fmtSel.value : 'svg';
+    panelConfigs.set(getPanelIndex(panel), serializePanelConfig(st, panel));
+  }
+}
+
+function capturePanelConfigSnapshot(panelEl) {
+  syncPanelStateFromInputs(panelEl);
+  const st = panelState.get(panelEl);
+  if (st) {
+    st.colorByLogpoint = Object.assign({}, getLogpointColors(panelEl));
+    st.tableCollapsed = panelEl.classList.contains('table-collapsed');
+    const fmtSel = panelEl.querySelector('.export-format-select');
+    st.exportFormat = (fmtSel && fmtSel.value) ? fmtSel.value : 'svg';
+  }
+  return serializePanelConfig(st, panelEl);
+}
+
+function getPanelTitleText(panelEl, st) {
+  const cfgName = st && st.activeConfigName ? String(st.activeConfigName).trim() : '';
+  if (cfgName) return cfgName;
+  return `Tabelle ${getPanelIndex(panelEl)}`;
+}
+
+function isValidConfigNameForFilename(name) {
+  const n = String(name || '').trim();
+  if (!n) return false;
+  if (/[\\/:*?"<>|]/.test(n)) return false;
+  if (/^[. ]+$/.test(n)) return false;
+  if (/[. ]$/.test(n)) return false;
+  const upper = n.toUpperCase();
+  const reserved = new Set(['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9']);
+  if (reserved.has(upper)) return false;
+  return true;
+}
+
+function getPanelExportConfigName(panelEl) {
+  const st = panelState.get(panelEl);
+  const raw = st && st.activeConfigName ? String(st.activeConfigName).trim() : '';
+  if (raw) return raw;
+  return `Tabelle-${getPanelIndex(panelEl)}`;
+}
+
+function sanitizeFilenamePart(input, fallback = 'konfiguration') {
+  const base = String(input || '').trim() || fallback;
+  let out = base
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/[\x00-\x1F]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '');
+  if (!out) out = fallback;
+  return out.slice(0, 80);
+}
+
+function getExportTimestamp() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+function buildTrendExportBaseName(panelEl) {
+  const cfgName = sanitizeFilenamePart(getPanelExportConfigName(panelEl), 'konfiguration');
+  const ts = getExportTimestamp();
+  return `trend-${cfgName}-${ts}`;
+}
+
+function updatePanelTitle(panelEl) {
+  const titleEl = panelEl && panelEl.querySelector('.panel-title');
+  if (!titleEl) return;
+  const st = panelState.get(panelEl);
+  titleEl.textContent = getPanelTitleText(panelEl, st);
+  titleEl.title = titleEl.textContent;
+}
+
+function markPanelAsCustom(panelEl) {
+  const st = panelState.get(panelEl);
+  if (!st || !st.activeConfigName) return;
+  st.activeConfigName = '';
+  updatePanelTitle(panelEl);
+}
+
+function showPanelNotice(panelEl, message) {
+  const noteEl = panelEl && panelEl.querySelector('.panel-notice');
+  if (!noteEl) return;
+  noteEl.textContent = String(message || '').trim();
+  noteEl.classList.toggle('visible', !!noteEl.textContent);
+  const oldTimer = panelNoticeTimers.get(panelEl);
+  if (oldTimer) clearTimeout(oldTimer);
+  if (!noteEl.textContent) return;
+  const timer = setTimeout(() => {
+    noteEl.classList.remove('visible');
+    noteEl.textContent = '';
+    panelNoticeTimers.delete(panelEl);
+  }, 2600);
+  panelNoticeTimers.set(panelEl, timer);
+}
+
+function applyPanelSnapshotToIndex(panelIndex, snapshot, opts = {}) {
+  syncAllPanelsStateFromUi();
+  const cfg = normalizePanelSnapshot(snapshot);
+  if (opts.rebaseTimeToNow) {
+    const now = Date.now();
+    const fromTsNum = Number(cfg.fromTs);
+    const toTsNum = Number(cfg.toTs);
+    const fallbackRangeMs = 3600_000;
+    const historicRangeMs = (Number.isFinite(fromTsNum) && Number.isFinite(toTsNum) && toTsNum > fromTsNum)
+      ? (toTsNum - fromTsNum)
+      : fallbackRangeMs;
+    const rangeMs = Math.max(60_000, Number(cfg.relativeRangeMs) || historicRangeMs);
+    cfg.toTs = now;
+    cfg.fromTs = now - rangeMs;
+    cfg.relativeRangeMs = rangeMs;
+  }
+  cfg.lastRows = [];
+  cfg.lastCursorTs = null;
+  cfg.trendEnabled = true;
+  if (EMBED_MODE) cfg.tableCollapsed = true;
+  cfg.activeConfigName = String(opts.configName || '');
+  panelConfigs.set(panelIndex, cfg);
+  renderPanels();
+}
+
+async function openLoadConfigDialog() {
+  const all = getStoredPanelConfigs();
+  let names = Object.keys(all).sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+  if (!names.length) {
+    alert('Es sind keine gespeicherten Konfigurationen vorhanden.');
+    return null;
+  }
+
+  return await new Promise((resolve) => {
+    const dlg = document.createElement('dialog');
+    dlg.style.padding = '0';
+    dlg.style.border = '1px solid #c9d3e3';
+    dlg.style.borderRadius = '8px';
+    dlg.style.maxWidth = '520px';
+    dlg.style.width = '92vw';
+
+    dlg.innerHTML = `
+      <form method="dialog" style="margin:0; padding:14px; min-width:320px;">
+        <h3 style="margin:0 0 10px 0;">Konfiguration laden</h3>
+        <div class="muted-small" style="margin-bottom:8px;">Gespeicherte Konfiguration auswählen oder löschen.</div>
+        <select id="cfgSelect" size="8" style="width:100%; font-size:.95rem; padding:.35rem;"></select>
+        <div style="display:flex; justify-content:space-between; gap:.5rem; margin-top:12px;">
+          <button value="delete" id="cfgDeleteBtn" type="button" class="btn">Ausgewählte löschen</button>
+          <div style="display:flex; gap:.5rem;">
+            <button value="cancel" type="button" id="cfgCancelBtn" class="btn">Abbrechen</button>
+            <button value="load" type="button" id="cfgLoadBtn" class="btn btn--primary">Laden</button>
+          </div>
+        </div>
+      </form>
+    `;
+
+    const select = dlg.querySelector('#cfgSelect');
+    const loadBtn = dlg.querySelector('#cfgLoadBtn');
+    const deleteBtn = dlg.querySelector('#cfgDeleteBtn');
+    const cancelBtn = dlg.querySelector('#cfgCancelBtn');
+
+    const refill = () => {
+      select.innerHTML = '';
+      for (const name of names) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      }
+      if (names.length) {
+        select.selectedIndex = 0;
+      }
+      loadBtn.disabled = names.length === 0;
+      deleteBtn.disabled = names.length === 0;
+    };
+
+    refill();
+
+    loadBtn.addEventListener('click', () => {
+      const chosen = select.value;
+      if (!chosen) return;
+      dlg.close();
+      resolve(chosen);
+    });
+
+    deleteBtn.addEventListener('click', () => {
+      const chosen = select.value;
+      if (!chosen) return;
+      if (!confirm(`Konfiguration "${chosen}" wirklich löschen?`)) return;
+      delete all[chosen];
+      setStoredArchiveConfigs(all);
+      names = Object.keys(all).sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+      refill();
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      dlg.close();
+      resolve(null);
+    });
+
+    dlg.addEventListener('cancel', () => resolve(null), { once: true });
+    dlg.addEventListener('close', () => {
+      dlg.remove();
+    }, { once: true });
+
+    document.body.appendChild(dlg);
+    if (typeof dlg.showModal === 'function') {
+      dlg.showModal();
+    } else {
+      // Fallback for browsers without <dialog> support.
+      const chosen = prompt('Konfiguration auswählen (Name eingeben):', names[0] || '');
+      dlg.remove();
+      resolve(chosen && all[chosen] ? chosen : null);
+    }
+  });
+}
+
+function savePanelConfig(panelEl) {
+  const snapshot = capturePanelConfigSnapshot(panelEl);
+  const rawName = prompt('Name für diese Konfiguration:');
+  if (rawName === null) return;
+  const name = rawName.trim();
+  if (!name) {
+    alert('Bitte einen gültigen Namen eingeben.');
+    return;
+  }
+  if (!isValidConfigNameForFilename(name)) {
+    alert('Ungültiger Name. Bitte keine Zeichen wie \\/ : * ? " < > | verwenden und keinen reservierten Windows-Dateinamen.');
+    return;
+  }
+
+  const all = getStoredPanelConfigs();
+  if (all[name] && !confirm(`Konfiguration "${name}" existiert bereits. Überschreiben?`)) {
+    return;
+  }
+
+  all[name] = snapshot;
+  setStoredArchiveConfigs(all);
+  alert(`Konfiguration "${name}" wurde gespeichert.`);
+}
+
+async function loadPanelConfig(panelEl) {
+  const chosen = await openLoadConfigDialog();
+  if (!chosen) return;
+  const all = getStoredPanelConfigs();
+  const snapshot = all[chosen];
+  if (!snapshot) {
+    alert('Gewählte Konfiguration wurde nicht gefunden.');
+    return;
+  }
+  const panelIndex = getPanelIndex(panelEl);
+  applyPanelSnapshotToIndex(panelIndex, snapshot, { configName: chosen, rebaseTimeToNow: true });
+  const refreshed = panelGrid.querySelector(`.archive-panel[data-panel-index="${panelIndex}"]`);
+  if (refreshed) {
+    await loadPanelData(refreshed, { incremental: false });
+    showPanelNotice(refreshed, 'Konfiguration geladen');
+  }
+}
+
+function fillEmbedConfigSelect(panelEl) {
+  if (!EMBED_MODE || !panelEl) return;
+  const sel = panelEl.querySelector('.embed-config-select');
+  if (!sel) return;
+  const names = getStoredPanelConfigNames();
+  const st = panelState.get(panelEl);
+  const activeName = st && st.activeConfigName ? String(st.activeConfigName) : '';
+  sel.innerHTML = '';
+
+  if (!names.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'Keine gespeicherten Konfigurationen';
+    sel.appendChild(opt);
+    sel.disabled = true;
+    return;
+  }
+
+  sel.disabled = false;
+  if (!activeName) {
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Trendkonfiguration auswählen...';
+    placeholder.selected = true;
+    placeholder.disabled = true;
+    sel.appendChild(placeholder);
+  }
+
+  for (const name of names) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (activeName && name === activeName) {
+      opt.selected = true;
+    }
+    sel.appendChild(opt);
+  }
+}
+
+async function applyEmbedConfigByName(panelEl, name) {
+  const all = getStoredPanelConfigs();
+  const snapshot = all[String(name || '')];
+  if (!snapshot) {
+    alert('Gewählte Konfiguration wurde nicht gefunden.');
+    return;
+  }
+  const panelIndex = getPanelIndex(panelEl);
+  applyPanelSnapshotToIndex(panelIndex, snapshot, { configName: String(name || ''), rebaseTimeToNow: true });
+  const refreshed = panelGrid.querySelector(`.archive-panel[data-panel-index="${panelIndex}"]`);
+  if (refreshed) {
+    await loadPanelData(refreshed, { incremental: false });
+    showPanelNotice(refreshed, 'Konfiguration geladen');
+  }
+}
+
+function buildEmbedUrlForPanel(panelEl) {
+  const snapshot = capturePanelConfigSnapshot(panelEl);
+  snapshot.trendEnabled = true;
+  snapshot.tableCollapsed = true;
+  const encoded = encodeBase64UrlUtf8(JSON.stringify(snapshot));
+  if (!encoded) return '';
+  const url = new URL(location.href);
+  url.searchParams.set('embedTrend', '1');
+  url.searchParams.set('trendCfg', encoded);
+  url.searchParams.delete('connectionId');
+  url.searchParams.delete('logpointId');
+  return url.toString();
+}
+
+async function createEmbedUrlForPanel(panelEl) {
+  const url = buildEmbedUrlForPanel(panelEl);
+  if (!url) {
+    alert('Embed-URL konnte nicht erzeugt werden.');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    alert('Embed-URL wurde in die Zwischenablage kopiert.');
+  } catch (_) {
+    prompt('Embed-URL (kopieren):', url);
+  }
+}
+
+function getEmbedPanelConfigFromUrl() {
+  if (!EMBED_MODE || !EMBED_CFG_PARAM) return null;
+  const jsonText = decodeBase64UrlUtf8(EMBED_CFG_PARAM);
+  if (!jsonText) return null;
+  try {
+    const parsed = JSON.parse(jsonText);
+    return normalizePanelSnapshot(parsed);
+  } catch (_) {
+    return null;
+  }
+}
+
+function getPanelConfig(index) {
+  if (!panelConfigs.has(index)) {
+    panelConfigs.set(index, makeDefaultPanelConfig());
+  }
+  return panelConfigs.get(index);
+}
+
+function prunePanelConfigsByMode() {
+  for (const idx of Array.from(panelConfigs.keys())) {
+    if (idx > mode) {
+      const cfg = panelConfigs.get(idx);
+      if (cfg && cfg.liveTimer) clearInterval(cfg.liveTimer);
+      panelConfigs.delete(idx);
+    }
+  }
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function toInputDateTimeValue(ts) {
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromInputDateTimeValue(v, fallback) {
+  if (!v) return fallback;
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return fallback;
+  return d.getTime();
+}
+
+function setQuickRange(panelEl, kind) {
+  const now = Date.now();
+  let from = now - 3600_000;
+  if (kind === '24h') from = now - 24 * 3600_000;
+  if (kind === '7d') from = now - 7 * 24 * 3600_000;
+  if (kind === '30d') from = now - 30 * 24 * 3600_000;
+  panelEl.querySelector('.from-input').value = toInputDateTimeValue(from);
+  panelEl.querySelector('.to-input').value = toInputDateTimeValue(now);
+  const st = panelState.get(panelEl);
+  if (st) {
+    st.fromTs = from;
+    st.toTs = now;
+    st.relativeRangeMs = Math.max(60_000, now - from);
+  }
+}
+
+function getCheckedValues(containerEl) {
+  if (!containerEl) return [];
+  return Array.from(containerEl.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
+}
+
+function refreshLogpointOptions(panelEl) {
+  const connBox = panelEl.querySelector('.conn-checklist');
+  const lpBox = panelEl.querySelector('.lp-checklist');
+  const selectedConns = new Set(getCheckedValues(connBox));
+  const st = panelState.get(panelEl);
+  const prev = new Set(st ? st.selectedLpIds : getCheckedValues(lpBox));
+
+  const filtered = logpoints.filter((lp) => selectedConns.size === 0 || selectedConns.has(String(lp.connectionId)));
+  const sorted = filtered.slice().sort((a,b) => {
+    const ad = String(a.displayName || a.browseName || a.nodeId || '');
+    const bd = String(b.displayName || b.browseName || b.nodeId || '');
+    return ad.localeCompare(bd, 'de', { sensitivity: 'base' });
+  });
+
+  lpBox.innerHTML = '';
+  for (const lp of sorted) {
+    const row = document.createElement('label');
+    row.className = 'check-item';
+    const id = String(lp.id);
+    const connLabel = connNameById.get(String(lp.connectionId)) || String(lp.connectionId);
+    const text = `${lp.displayName || lp.browseName || lp.nodeId} [${connLabel}]`;
+    const pState = panelState.get(panelEl) || { colorByLogpoint: {} };
+    const pickedColor = pState.colorByLogpoint[id] || DEFAULT_COLORS[Math.abs(Number(id)) % DEFAULT_COLORS.length];
+    row.innerHTML = `<input type="checkbox" value="${escapeHtml(id)}" ${prev.has(id) ? 'checked' : ''}><span class="label-text">${escapeHtml(text)}</span><input type="color" class="lp-color" data-lpid="${escapeHtml(id)}" value="${escapeHtml(pickedColor)}" title="Trendfarbe">`;
+    lpBox.appendChild(row);
+  }
+
+  if (st) {
+    st.selectedLpIds = getCheckedValues(lpBox);
+  }
+
+  lpBox.querySelectorAll('.lp-color').forEach((input) => {
+    input.addEventListener('input', () => {
+      const st = panelState.get(panelEl);
+      if (!st) return;
+      markPanelAsCustom(panelEl);
+      st.colorByLogpoint[input.dataset.lpid] = input.value;
+      if (st.trendEnabled) renderTrend(panelEl);
+    });
+  });
+}
+
+function getLogpointColors(panelEl) {
+  const out = {};
+  panelEl.querySelectorAll('.lp-color').forEach((input) => {
+    out[input.dataset.lpid] = input.value;
+  });
+  return out;
+}
+
+function wireTrendTooltip(panelEl, seriesByLp) {
+  const wrap = panelEl.querySelector('.trend-wrap');
+  const svg = panelEl.querySelector('.trend-svg');
+  const tip = panelEl.querySelector('.trend-tooltip');
+  if (!wrap || !svg || !tip) return;
+
+  const hideTip = () => {
+    tip.style.display = 'none';
+  };
+
+  svg.querySelectorAll('.trend-hit').forEach((hit) => {
+    hit.addEventListener('mousemove', (ev) => {
+      const lpId = hit.getAttribute('data-lpid');
+      const series = seriesByLp.get(String(lpId));
+      if (!series || !series.pts || !series.pts.length) return;
+
+      const pt = svg.createSVGPoint();
+      pt.x = ev.clientX;
+      pt.y = ev.clientY;
+      const local = pt.matrixTransform(svg.getScreenCTM().inverse());
+
+      let nearest = series.pts[0];
+      let best = Math.abs(local.x - nearest.x);
+      for (let i = 1; i < series.pts.length; i++) {
+        const cand = series.pts[i];
+        const dist = Math.abs(local.x - cand.x);
+        if (dist < best) {
+          best = dist;
+          nearest = cand;
+        }
+      }
+
+      const valTxt = series.isBooleanSeries
+        ? String(nearest.display || (Number(nearest.value) >= 0.5 ? 'true' : 'false'))
+        : formatNumericForLogpoint(series.lpId, Number(nearest.value));
+      const valWithUnit = withUnit(valTxt, series.unit || '');
+      const tsTxt = new Date(nearest.ts).toLocaleString('de-DE');
+      const titleTxt = series.connectionName
+        ? `${series.name} (${series.connectionName})`
+        : series.name;
+      tip.innerHTML = `<strong>${escapeHtml(titleTxt)}</strong><br>Wert: ${escapeHtml(valWithUnit)}<br>Zeit: ${escapeHtml(tsTxt)}`;
+      tip.style.display = 'block';
+
+      const rect = wrap.getBoundingClientRect();
+      const x = ev.clientX - rect.left + 12;
+      const y = ev.clientY - rect.top + 12;
+      tip.style.left = `${x}px`;
+      tip.style.top = `${y}px`;
+    });
+
+    hit.addEventListener('mouseleave', hideTip);
+  });
+
+  svg.addEventListener('mouseleave', hideTip);
+}
+
+function wireTrendRuntimeInteractions(panelEl, trendMeta) {
+  const svg = panelEl.querySelector('.trend-svg');
+  if (!svg || !trendMeta) return;
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const plotMinX = Number(trendMeta.padL);
+  const plotMaxX = Number(trendMeta.width) - Number(trendMeta.padR);
+  const plotMinY = Number(trendMeta.padT);
+  const plotMaxY = Number(trendMeta.height) - Number(trendMeta.padB);
+  const minTs = Number(trendMeta.minTs);
+  const maxTs = Number(trendMeta.maxTs);
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const localPoint = (ev) => {
+    const pt = svg.createSVGPoint();
+    pt.x = ev.clientX;
+    pt.y = ev.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return null;
+    return pt.matrixTransform(ctm.inverse());
+  };
+
+  svg.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    zoomTrend(panelEl, ev.deltaY < 0 ? 0.8 : 1.25);
+  }, { passive: false });
+
+  let dragging = false;
+  let dragStartX = 0;
+  let brushRect = null;
+
+  const cleanupBrush = () => {
+    if (brushRect && brushRect.parentNode) brushRect.parentNode.removeChild(brushRect);
+    brushRect = null;
+    dragging = false;
+  };
+
+  const applyBrush = (x1, x2) => {
+    const left = Math.min(x1, x2);
+    const right = Math.max(x1, x2);
+    if ((right - left) < 8) return;
+    const denom = Math.max(1, plotMaxX - plotMinX);
+    const ratioA = (left - plotMinX) / denom;
+    const ratioB = (right - plotMinX) / denom;
+    const nextMin = minTs + ratioA * (maxTs - minTs);
+    const nextMax = minTs + ratioB * (maxTs - minTs);
+    if (!(nextMax > nextMin)) return;
+
+    const st = panelState.get(panelEl);
+    if (!st) return;
+    markPanelAsCustom(panelEl);
+    st.trendViewport = { minTs: nextMin, maxTs: nextMax };
+    st.fromTs = nextMin;
+    st.toTs = nextMax;
+    st.relativeRangeMs = Math.max(60_000, nextMax - nextMin);
+
+    const fromInput = panelEl.querySelector('.from-input');
+    const toInput = panelEl.querySelector('.to-input');
+    if (fromInput) fromInput.value = toInputDateTimeValue(nextMin);
+    if (toInput) toInput.value = toInputDateTimeValue(nextMax);
+
+    renderTrend(panelEl);
+  };
+
+  svg.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    const p = localPoint(ev);
+    if (!p) return;
+    if (p.x < plotMinX || p.x > plotMaxX || p.y < plotMinY || p.y > plotMaxY) return;
+
+    dragging = true;
+    dragStartX = clamp(p.x, plotMinX, plotMaxX);
+    brushRect = document.createElementNS(ns, 'rect');
+    brushRect.setAttribute('x', String(dragStartX));
+    brushRect.setAttribute('y', String(plotMinY));
+    brushRect.setAttribute('width', '0');
+    brushRect.setAttribute('height', String(Math.max(1, plotMaxY - plotMinY)));
+    brushRect.setAttribute('fill', 'rgba(43,111,179,0.18)');
+    brushRect.setAttribute('stroke', '#2b6fb3');
+    brushRect.setAttribute('stroke-width', '1');
+    brushRect.setAttribute('stroke-dasharray', '4 3');
+    brushRect.setAttribute('pointer-events', 'none');
+    svg.appendChild(brushRect);
+    svg.setPointerCapture(ev.pointerId);
+    ev.preventDefault();
+  });
+
+  svg.addEventListener('pointermove', (ev) => {
+    if (!dragging || !brushRect) return;
+    const p = localPoint(ev);
+    if (!p) return;
+    const nowX = clamp(p.x, plotMinX, plotMaxX);
+    const left = Math.min(dragStartX, nowX);
+    const width = Math.max(1, Math.abs(nowX - dragStartX));
+    brushRect.setAttribute('x', String(left));
+    brushRect.setAttribute('width', String(width));
+  });
+
+  svg.addEventListener('pointerup', (ev) => {
+    if (!dragging) return;
+    const p = localPoint(ev);
+    const endX = p ? clamp(p.x, plotMinX, plotMaxX) : dragStartX;
+    cleanupBrush();
+    try { svg.releasePointerCapture(ev.pointerId); } catch (_) {}
+    applyBrush(dragStartX, endX);
+  });
+
+  svg.addEventListener('pointercancel', () => {
+    cleanupBrush();
+  });
+}
+
+function renderTrendLegend(panelEl, seriesByLp) {
+  const legend = panelEl.querySelector('.trend-legend');
+  if (!legend) return;
+  const entries = Array.from(seriesByLp.values());
+  if (!entries.length) {
+    legend.innerHTML = '';
+    return;
+  }
+  legend.innerHTML = entries.map((s) => {
+    const label = s.connectionName ? `${s.name} (${s.connectionName})` : s.name;
+    const color = String(s.color || '#000');
+    return `<span class="trend-legend-item"><span class="trend-legend-swatch" style="background:${escapeHtml(color)}"></span>${escapeHtml(label)}</span>`;
+  }).join('');
+}
+
+function renderTrend(panelEl) {
+  const st = panelState.get(panelEl);
+  if (!st || !st.trendEnabled) return;
+  const svg = panelEl.querySelector('.trend-svg');
+  const note = panelEl.querySelector('.trend-note');
+  if (!svg || !note) return;
+
+  const rows = Array.isArray(st.lastRows) ? st.lastRows : [];
+  if (rows.length === 0) {
+    svg.innerHTML = '';
+    note.textContent = 'Keine Daten für Trendansicht vorhanden.';
+    renderTrendLegend(panelEl, new Map());
+    return;
+  }
+
+  const selectedLp = new Set(getCheckedValues(panelEl.querySelector('.lp-checklist')));
+  const filtered = rows.filter((r) => selectedLp.size === 0 || selectedLp.has(String(r.logpointId)));
+  const groups = new Map();
+  const nameByLp = new Map();
+  const connByLp = new Map();
+  const boolOnlyByLp = new Map();
+  for (const r of filtered) {
+    const lpId = String(r.logpointId);
+    const norm = normalizeTrendValue(r.value);
+    if (!norm.ok) continue;
+    if (!nameByLp.has(lpId)) nameByLp.set(lpId, String(r.displayName || `Logpoint ${lpId}`));
+    if (!connByLp.has(lpId)) {
+      const connLabel = connNameById.get(String(r.connectionId)) || String(r.connectionId || '');
+      connByLp.set(lpId, connLabel);
+    }
+    if (!groups.has(lpId)) groups.set(lpId, []);
+    if (!boolOnlyByLp.has(lpId)) boolOnlyByLp.set(lpId, !!norm.isBoolean);
+    else boolOnlyByLp.set(lpId, boolOnlyByLp.get(lpId) && !!norm.isBoolean);
+    groups.get(lpId).push({ ts: Number(r.ts), value: norm.value, display: norm.display });
+  }
+
+  if (groups.size === 0) {
+    svg.innerHTML = '';
+    note.textContent = 'Trendansicht zeigt nur numerische oder boolsche Logpoints.';
+    renderTrendLegend(panelEl, new Map());
+    return;
+  }
+
+  const allPts = Array.from(groups.values()).flat();
+  const dataMinTs = Math.min(...allPts.map((p) => p.ts));
+  const dataMaxTs = Math.max(...allPts.map((p) => p.ts));
+
+  const boolLpIds = new Set();
+  for (const [lpId, isBoolOnly] of boolOnlyByLp.entries()) {
+    if (isBoolOnly) boolLpIds.add(lpId);
+  }
+  const numericPts = [];
+  const boolPts = [];
+  for (const [lpId, pts] of groups.entries()) {
+    if (boolLpIds.has(lpId)) boolPts.push(...pts);
+    else numericPts.push(...pts);
+  }
+  const hasNumericSeries = numericPts.length > 0;
+  const hasBooleanSeries = boolPts.length > 0;
+
+  const minVal = hasNumericSeries ? Math.min(...numericPts.map((p) => p.value)) : 0;
+  const maxVal = hasNumericSeries ? Math.max(...numericPts.map((p) => p.value)) : 1;
+
+  let minTs = dataMinTs;
+  let maxTs = dataMaxTs;
+  if (st.trendViewport && Number.isFinite(st.trendViewport.minTs) && Number.isFinite(st.trendViewport.maxTs)) {
+    minTs = Math.max(dataMinTs, st.trendViewport.minTs);
+    maxTs = Math.min(dataMaxTs, st.trendViewport.maxTs);
+  }
+  if (!(maxTs > minTs)) {
+    minTs = dataMinTs;
+    maxTs = dataMaxTs;
+  }
+
+  const numericSeriesStats = new Map();
+  for (const [lpId, ptsRaw] of groups.entries()) {
+    if (boolLpIds.has(lpId)) continue;
+    const pts = ptsRaw.filter((p) => p.ts >= minTs && p.ts <= maxTs);
+    if (!pts.length) continue;
+    let sMin = Math.min(...pts.map((p) => Number(p.value)));
+    let sMax = Math.max(...pts.map((p) => Number(p.value)));
+    if (!(sMax > sMin)) {
+      const bump = Math.max(1, Math.abs(sMax) * 0.02);
+      sMin -= bump;
+      sMax += bump;
+    }
+    numericSeriesStats.set(lpId, { min: sMin, max: sMax, lpIds: [lpId] });
+  }
+
+  const axisDefs = [];
+  const AXIS_MAG_RATIO_SPLIT = 80;
+  const AXIS_SPAN_RATIO_SPLIT = 30;
+  for (const [lpId, stat] of numericSeriesStats.entries()) {
+    let target = null;
+    for (const axis of axisDefs) {
+      const axisMag = Math.max(Math.abs(axis.min), Math.abs(axis.max), 1e-9);
+      const statMag = Math.max(Math.abs(stat.min), Math.abs(stat.max), 1e-9);
+      const magRatio = Math.max(axisMag, statMag) / Math.min(axisMag, statMag);
+      const axisSpan = Math.max(1e-9, axis.max - axis.min);
+      const statSpan = Math.max(1e-9, stat.max - stat.min);
+      const spanRatio = Math.max(axisSpan, statSpan) / Math.min(axisSpan, statSpan);
+      const overlaps = !(stat.max < axis.min || stat.min > axis.max);
+      const similarScale = (magRatio <= AXIS_MAG_RATIO_SPLIT) && (spanRatio <= AXIS_SPAN_RATIO_SPLIT);
+      if (overlaps && similarScale) {
+        target = axis;
+        break;
+      }
+      if (!overlaps && magRatio <= AXIS_MAG_RATIO_SPLIT) {
+        target = axis;
+        break;
+      }
+    }
+    if (!target) {
+      axisDefs.push({ min: stat.min, max: stat.max, lpIds: [lpId] });
+    } else {
+      target.min = Math.min(target.min, stat.min);
+      target.max = Math.max(target.max, stat.max);
+      target.lpIds.push(lpId);
+    }
+  }
+
+  if (!axisDefs.length && hasNumericSeries) {
+    axisDefs.push({ min: minVal, max: maxVal, lpIds: [] });
+  }
+
+  axisDefs.sort((a, b) => {
+    const ma = Math.max(Math.abs(a.min), Math.abs(a.max));
+    const mb = Math.max(Math.abs(b.min), Math.abs(b.max));
+    return mb - ma;
+  });
+
+  const numericAxisByLp = new Map();
+  axisDefs.forEach((axis, axisIdx) => {
+    if (!(axis.max > axis.min)) {
+      const bump = Math.max(1, Math.abs(axis.max) * 0.02);
+      axis.min -= bump;
+      axis.max += bump;
+    }
+    for (const lpId of axis.lpIds) {
+      numericAxisByLp.set(String(lpId), axisIdx);
+    }
+  });
+
+  const width = 1000;
+  const height = 260;
+  const axisSpacing = 42;
+  const padL = 56 + Math.max(0, axisDefs.length - 1) * axisSpacing;
+  const padR = 12;
+  const padT = 12;
+  const padB = 26;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const dt = Math.max(1, maxTs - minTs);
+
+  const x = (ts) => padL + ((ts - minTs) / dt) * plotW;
+  const yNumeric = (v, lpId) => {
+    const idx = numericAxisByLp.get(String(lpId)) || 0;
+    const axis = axisDefs[idx] || axisDefs[0] || { min: minVal, max: maxVal };
+    const dv = Math.max(1e-9, axis.max - axis.min);
+    return padT + (1 - ((v - axis.min) / dv)) * plotH;
+  };
+  const boolTrueY = padT + plotH * 0.50;
+  const boolFalseY = height - padB;
+  const yBool = (v) => (Number(v) >= 0.5 ? boolTrueY : boolFalseY);
+
+  const formatAxisValue = (v) => {
+    if (!Number.isFinite(v)) return '';
+    const av = Math.abs(v);
+    if ((av >= 100000) || (av > 0 && av < 0.01)) return v.toExponential(2);
+    return v.toFixed(2);
+  };
+
+  let markup = `<svg viewBox="0 0 ${width} ${height}" class="trend-svg" aria-label="Trendansicht">`;
+  markup += `<line x1="${padL}" y1="${height - padB}" x2="${width - padR}" y2="${height - padB}" stroke="#8fa0b8" stroke-width="1"/>`;
+
+  if (hasNumericSeries) {
+    for (let axisIdx = 0; axisIdx < axisDefs.length; axisIdx++) {
+      const axis = axisDefs[axisIdx];
+      const axisX = padL - axisIdx * axisSpacing;
+      markup += `<line x1="${axisX}" y1="${padT}" x2="${axisX}" y2="${height - padB}" stroke="#8fa0b8" stroke-width="1"/>`;
+      markup += `<text x="${axisX - 4}" y="${padT + 10}" text-anchor="end" font-size="11" fill="#516075">${escapeHtml(formatAxisValue(axis.max))}</text>`;
+      markup += `<text x="${axisX - 4}" y="${height - padB}" text-anchor="end" font-size="11" fill="#516075">${escapeHtml(formatAxisValue(axis.min))}</text>`;
+    }
+  }
+
+  for (let i = 0; i <= 4; i++) {
+    const yy = padT + (plotH / 4) * i;
+    markup += `<line x1="${padL}" y1="${yy}" x2="${width - padR}" y2="${yy}" stroke="#edf1f6" stroke-width="1"/>`;
+  }
+
+  const xTicks = 6;
+  for (let i = 0; i <= xTicks; i++) {
+    const ratio = i / xTicks;
+    const xt = padL + ratio * plotW;
+    const ts = minTs + ratio * dt;
+    const txt = new Date(ts).toLocaleString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    let tickAnchor = 'middle';
+    let tickX = xt;
+    if (i === 0) {
+      tickAnchor = 'start';
+      tickX = Math.max(padL + 1, xt);
+    } else if (i === xTicks) {
+      tickAnchor = 'end';
+      tickX = Math.min(width - padR - 1, xt);
+    }
+    markup += `<line x1="${xt.toFixed(2)}" y1="${height - padB}" x2="${xt.toFixed(2)}" y2="${height - padB + 4}" stroke="#8fa0b8" stroke-width="1"/>`;
+    markup += `<text x="${tickX.toFixed(2)}" y="${height - 6}" text-anchor="${tickAnchor}" font-size="10" fill="#516075">${escapeHtml(txt)}</text>`;
+  }
+
+  const colors = Object.assign({}, st.colorByLogpoint, getLogpointColors(panelEl));
+  st.colorByLogpoint = colors;
+  const seriesByLp = new Map();
+
+  for (const [lpId, ptsRaw] of groups.entries()) {
+    const pts = ptsRaw
+      .slice()
+      .sort((a, b) => a.ts - b.ts)
+      .filter((p) => p.ts >= minTs && p.ts <= maxTs);
+    if (pts.length < 2) continue;
+    const isBoolSeries = !!boolOnlyByLp.get(lpId);
+    const ptsSvg = pts.map((p) => ({
+      x: x(p.ts),
+      y: isBoolSeries ? yBool(p.value) : yNumeric(p.value, lpId),
+      ts: p.ts,
+      value: p.value,
+      display: p.display || ''
+    }));
+    let path = '';
+    if (isBoolSeries) {
+      path = `M ${ptsSvg[0].x.toFixed(2)} ${ptsSvg[0].y.toFixed(2)}`;
+      for (let i = 1; i < ptsSvg.length; i++) {
+        const prev = ptsSvg[i - 1];
+        const curr = ptsSvg[i];
+        path += ` L ${curr.x.toFixed(2)} ${prev.y.toFixed(2)} L ${curr.x.toFixed(2)} ${curr.y.toFixed(2)}`;
+      }
+    } else {
+      path = ptsSvg.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+    }
+    const color = colors[lpId] || DEFAULT_COLORS[Math.abs(Number(lpId)) % DEFAULT_COLORS.length];
+    markup += `<path class="trend-line" d="${path}" fill="none" stroke="${color}" stroke-width="2"/>`;
+    markup += `<path class="trend-hit" data-lpid="${escapeHtml(lpId)}" d="${path}" fill="none" stroke="transparent" stroke-width="10"/>`;
+    seriesByLp.set(lpId, {
+      lpId,
+      name: nameByLp.get(lpId) || `Logpoint ${lpId}`,
+      connectionName: connByLp.get(lpId) || '',
+      unit: getUnitForLogpointId(lpId),
+      color,
+      isBooleanSeries: isBoolSeries,
+      pts: ptsSvg,
+      path,
+      latest: ptsSvg[ptsSvg.length - 1]
+    });
+  }
+
+  st.lastTrendSeries = Array.from(seriesByLp.entries()).map(([lpId, s]) => ({
+    lpId,
+    name: s.name,
+    connectionName: s.connectionName || '',
+    unit: s.unit || '',
+    isBooleanSeries: !!s.isBooleanSeries,
+    pts: s.pts,
+    path: s.path || '',
+    latest: s.latest || null
+  }));
+
+  if (hasBooleanSeries) {
+    const axisX = width - padR;
+    markup += `<line x1="${axisX}" y1="${padT}" x2="${axisX}" y2="${height - padB}" stroke="#9aa9bf" stroke-width="1"/>`;
+    markup += `<line x1="${padL}" y1="${boolTrueY.toFixed(2)}" x2="${axisX}" y2="${boolTrueY.toFixed(2)}" stroke="#e6edf8" stroke-width="1" stroke-dasharray="4 3"/>`;
+    markup += `<line x1="${padL}" y1="${boolFalseY.toFixed(2)}" x2="${axisX}" y2="${boolFalseY.toFixed(2)}" stroke="#e6edf8" stroke-width="1" stroke-dasharray="4 3"/>`;
+    markup += `<text x="${axisX + 4}" y="${(boolTrueY + 4).toFixed(2)}" text-anchor="start" font-size="11" fill="#4f647f">1</text>`;
+    markup += `<text x="${axisX + 4}" y="${(boolFalseY + 4).toFixed(2)}" text-anchor="start" font-size="11" fill="#4f647f">0</text>`;
+    markup += `<text x="${axisX + 4}" y="${padT - 2}" text-anchor="start" font-size="10" fill="#4f647f">Bool</text>`;
+  }
+
+  const tMin = new Date(minTs).toLocaleString('de-DE');
+  const tMax = new Date(maxTs).toLocaleString('de-DE');
+  markup += `<text x="${padL}" y="${padT - 2}" font-size="10" fill="#516075">${escapeHtml(tMin)}</text>`;
+  markup += `<text x="${width - padR}" y="${padT - 2}" text-anchor="end" font-size="10" fill="#516075">${escapeHtml(tMax)}</text>`;
+
+  markup += `</svg>`;
+  svg.outerHTML = markup;
+  wireTrendTooltip(panelEl, seriesByLp);
+  wireTrendRuntimeInteractions(panelEl, { minTs, maxTs, width, height, padL, padR, padT, padB });
+  renderTrendLegend(panelEl, seriesByLp);
+
+  const total = allPts.length;
+  const kinds = hasNumericSeries && hasBooleanSeries
+    ? 'numerische + boolsche'
+    : (hasBooleanSeries ? 'boolsche' : 'numerische');
+  const axisNote = hasNumericSeries ? ` Numerikachsen links: ${axisDefs.length}.` : '';
+  note.textContent = `${groups.size} Trendlinie(n), ${total} ${kinds} Datenpunkte. Sichtfenster: ${new Date(minTs).toLocaleString('de-DE')} bis ${new Date(maxTs).toLocaleString('de-DE')}.${axisNote}`;
+}
+
+function exportPanelCsv(panelEl) {
+  const st = panelState.get(panelEl);
+  const rows = st && Array.isArray(st.lastRows) ? st.lastRows : [];
+  if (!rows.length) {
+    alert('Keine Daten zum Exportieren geladen.');
+    return;
+  }
+
+  const exportCfgName = getPanelExportConfigName(panelEl);
+  const exportTimeText = new Date().toLocaleString('de-DE');
+  const lines = [
+    `Konfiguration;"${String(exportCfgName).replace(/"/g, '""')}"`,
+    `Exportzeit;"${String(exportTimeText).replace(/"/g, '""')}"`,
+    '',
+    'Zeit;Verbindung;Logpoint;Wert'
+  ];
+  for (const r of rows) {
+    const ts = new Date(Number(r.ts)).toISOString();
+    const conn = connNameById.get(String(r.connectionId)) || String(r.connectionId || '');
+    const name = String(r.displayName || '');
+    const unit = r.unit || getUnitForLogpointId(r.logpointId);
+    const val = withUnit((r.value === null || r.value === undefined) ? '' : String(r.value), unit);
+    const esc = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+    lines.push([ts, conn, name, val].map(esc).join(';'));
+  }
+
+  const csvText = '\uFEFF' + lines.join('\n');
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${buildTrendExportBaseName(panelEl)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function exportTrend(panelEl, format = 'svg') {
+  const formatLower = String(format || 'svg').toLowerCase();
+  const svg = panelEl.querySelector('.trend-wrap .trend-svg');
+  const st = panelState.get(panelEl);
+  if (!svg) {
+    alert('Keine Trendansicht zum Export vorhanden.');
+    return;
+  }
+  const clone = svg.cloneNode(true);
+  if (!clone.getAttribute('xmlns')) {
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+
+  // Remove runtime-only hit layers from the on-page chart so they cannot swallow hover in export.
+  clone.querySelectorAll('.trend-hit').forEach((el) => el.remove());
+
+  const exportCfgName = getPanelExportConfigName(panelEl);
+  const exportTimeText = new Date().toLocaleString('de-DE');
+  const exportBaseName = buildTrendExportBaseName(panelEl);
+
+  // Use native SVG <title> tooltips only (no script): most reliable in Chrome/Edge for local files.
+  const series = st && Array.isArray(st.lastTrendSeries) ? st.lastTrendSeries : [];
+  if (series.length) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const legendItems = [];
+
+    const buildTipText = (s) => {
+      const latest = s.latest || {};
+      const valTxt = s.isBooleanSeries
+        ? String(latest.display || (Number(latest.value) >= 0.5 ? 'true' : 'false'))
+        : formatNumericForLogpoint(s.lpId, Number(latest.value));
+      const valWithUnit = withUnit(valTxt, s.unit || '');
+      const tsTxt = latest.ts ? new Date(Number(latest.ts)).toLocaleString('de-DE') : '';
+      const label = s.connectionName ? `${s.name} (${s.connectionName})` : s.name;
+      // Keep it single-line for maximum browser compatibility of native SVG tooltips.
+      return `${label} | Wert: ${valWithUnit} | Zeit: ${tsTxt}`;
+    };
+
+    // Keep visible lines non-interactive in export and use one dedicated hover layer.
+    const visibleLines = clone.querySelectorAll('.trend-line');
+    visibleLines.forEach((lineEl, idx) => {
+      const s = series[idx];
+      if (!s) return;
+      const lineColor = String(lineEl.getAttribute('stroke') || DEFAULT_COLORS[Math.abs(Number(s.lpId)) % DEFAULT_COLORS.length]);
+      lineEl.setAttribute('pointer-events', 'none');
+
+      const label = s.connectionName ? `${s.name} (${s.connectionName})` : s.name;
+      legendItems.push({ label, color: lineColor });
+    });
+
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('id', 'export-hover-lines');
+    for (let i = 0; i < series.length; i++) {
+      const s = series[i];
+      if (!s.path) continue;
+      const p = document.createElementNS(ns, 'path');
+      p.setAttribute('d', s.path);
+      p.setAttribute('fill', 'none');
+      const visibleLine = visibleLines[i];
+      const lineColor = visibleLine
+        ? String(visibleLine.getAttribute('stroke') || '#000')
+        : '#000';
+      // Keep hit path visually hidden, but always pointer-active.
+      p.setAttribute('stroke', 'transparent');
+      p.setAttribute('stroke-opacity', '1');
+      p.setAttribute('stroke-width', formatLower === 'html' ? '3' : '4');
+      p.setAttribute('pointer-events', 'stroke');
+      p.setAttribute('class', 'trend-export-hit');
+      p.setAttribute('style', 'cursor: crosshair;');
+      const t = document.createElementNS(ns, 'title');
+      const tipText = buildTipText(s);
+      t.textContent = tipText;
+      p.setAttribute('data-tip', tipText);
+      const label = s.connectionName ? `${s.name} (${s.connectionName})` : s.name;
+      p.setAttribute('data-label', label);
+      p.setAttribute('data-unit', String(s.unit || ''));
+      p.setAttribute('data-bool', s.isBooleanSeries ? '1' : '0');
+      p.setAttribute('data-points', JSON.stringify((Array.isArray(s.pts) ? s.pts : []).map((pt) => ({
+        x: Number(pt.x) || 0,
+        ts: Number(pt.ts) || 0,
+        v: Number(pt.value),
+        d: String(pt.display || '')
+      }))));
+      p.appendChild(t);
+      g.appendChild(p);
+    }
+    clone.appendChild(g);
+
+    if (legendItems.length) {
+      const viewBox = String(clone.getAttribute('viewBox') || '0 0 1000 260');
+      const vb = viewBox.split(/[\s,]+/).map(Number);
+      const vbWidth = Number.isFinite(vb[2]) ? vb[2] : 1000;
+
+      const legend = document.createElementNS(ns, 'g');
+      legend.setAttribute('id', 'export-legend');
+      legend.setAttribute('pointer-events', 'none');
+
+      const maxItems = 14;
+      const shown = legendItems.slice(0, maxItems);
+      const hiddenCount = legendItems.length - shown.length;
+      const labels = shown.map((x) => x.label).concat(hiddenCount > 0 ? [`+${hiddenCount} weitere...`] : []);
+      const maxLen = labels.reduce((m, txt) => Math.max(m, String(txt).length), 10);
+      const rowH = 16;
+      const pad = 8;
+      const legendW = Math.min(Math.max(210, maxLen * 6 + 40), Math.floor(vbWidth * 0.48));
+      const legendH = pad * 2 + labels.length * rowH;
+      const legendX = vbWidth - legendW - 10;
+      const legendY = 8;
+
+      const bg = document.createElementNS(ns, 'rect');
+      bg.setAttribute('x', String(legendX));
+      bg.setAttribute('y', String(legendY));
+      bg.setAttribute('width', String(legendW));
+      bg.setAttribute('height', String(legendH));
+      bg.setAttribute('rx', '6');
+      bg.setAttribute('ry', '6');
+      bg.setAttribute('fill', '#ffffff');
+      bg.setAttribute('fill-opacity', '0.9');
+      bg.setAttribute('stroke', '#c9d3e3');
+      bg.setAttribute('stroke-width', '1');
+      legend.appendChild(bg);
+
+      shown.forEach((item, idx) => {
+        const y = legendY + pad + 5 + idx * rowH;
+
+        const sample = document.createElementNS(ns, 'line');
+        sample.setAttribute('x1', String(legendX + 10));
+        sample.setAttribute('x2', String(legendX + 28));
+        sample.setAttribute('y1', String(y));
+        sample.setAttribute('y2', String(y));
+        sample.setAttribute('stroke', item.color || '#000');
+        sample.setAttribute('stroke-width', '2.5');
+        legend.appendChild(sample);
+
+        const txt = document.createElementNS(ns, 'text');
+        txt.setAttribute('x', String(legendX + 34));
+        txt.setAttribute('y', String(y + 3));
+        txt.setAttribute('font-size', '11');
+        txt.setAttribute('fill', '#2b3b50');
+        txt.textContent = String(item.label || '');
+        legend.appendChild(txt);
+      });
+
+      if (hiddenCount > 0) {
+        const y = legendY + pad + 5 + shown.length * rowH;
+        const txt = document.createElementNS(ns, 'text');
+        txt.setAttribute('x', String(legendX + 34));
+        txt.setAttribute('y', String(y + 3));
+        txt.setAttribute('font-size', '11');
+        txt.setAttribute('fill', '#516075');
+        txt.textContent = `+${hiddenCount} weitere...`;
+        legend.appendChild(txt);
+      }
+
+      // Place legend above the trend area by expanding viewBox and shifting plot content down.
+      const extraTop = legendH + 12;
+      const plotGroup = document.createElementNS(ns, 'g');
+      while (clone.firstChild) {
+        plotGroup.appendChild(clone.firstChild);
+      }
+      plotGroup.setAttribute('transform', `translate(0 ${extraTop})`);
+      clone.appendChild(plotGroup);
+
+      const vbX = Number.isFinite(vb[0]) ? vb[0] : 0;
+      const vbY = Number.isFinite(vb[1]) ? vb[1] : 0;
+      const vbH = Number.isFinite(vb[3]) ? vb[3] : 260;
+      clone.setAttribute('viewBox', `${vbX} ${vbY} ${vbWidth} ${vbH + extraTop}`);
+      clone.appendChild(legend);
+    }
+  }
+
+  {
+    const ns = 'http://www.w3.org/2000/svg';
+    const viewBox = String(clone.getAttribute('viewBox') || '0 0 1000 260');
+    const vb = viewBox.split(/[\s,]+/).map(Number);
+    const vbX = Number.isFinite(vb[0]) ? vb[0] : 0;
+    const vbY = Number.isFinite(vb[1]) ? vb[1] : 0;
+    const vbWidth = Number.isFinite(vb[2]) ? vb[2] : 1000;
+    const vbHeight = Number.isFinite(vb[3]) ? vb[3] : 260;
+
+    const captionH = 28;
+    const rootGroup = document.createElementNS(ns, 'g');
+    while (clone.firstChild) {
+      rootGroup.appendChild(clone.firstChild);
+    }
+    rootGroup.setAttribute('transform', `translate(0 ${captionH})`);
+    clone.appendChild(rootGroup);
+
+    const caption = document.createElementNS(ns, 'text');
+    caption.setAttribute('x', String(vbX + 8));
+    caption.setAttribute('y', String(vbY + 18));
+    caption.setAttribute('font-size', '12');
+    caption.setAttribute('fill', '#2b3b50');
+    caption.textContent = `Konfiguration: ${exportCfgName} | Export: ${exportTimeText}`;
+    clone.appendChild(caption);
+
+    clone.setAttribute('viewBox', `${vbX} ${vbY} ${vbWidth} ${vbHeight + captionH}`);
+  }
+
+  const svgMarkup = clone.outerHTML;
+  const svgContent = `<?xml version="1.0" encoding="UTF-8"?>\n${svgMarkup}`;
+
+  if (formatLower === 'html') {
+    const htmlClone = clone.cloneNode(true);
+    // Remove native SVG titles in HTML export to avoid duplicate browser tooltip.
+    htmlClone.querySelectorAll('title').forEach((el) => el.remove());
+    const htmlSvgMarkup = htmlClone.outerHTML;
+
+    const htmlContent = `<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Trend Export - ${escapeHtml(exportCfgName)}</title>
+  <style>
+    html, body { margin:0; padding:0; background:#f5f7fb; font-family: Arial, sans-serif; }
+    .wrap { padding: 12px; }
+    .card {
+      position: relative;
+      background: #fff;
+      border: 1px solid #d9e1ee;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      padding: 8px;
+      overflow: auto;
+    }
+    .card svg { width: 100%; height: auto; display: block; }
+    .tip {
+      position: fixed;
+      z-index: 9999;
+      display: none;
+      pointer-events: none;
+      background: rgba(20, 27, 38, 0.96);
+      color: #fff;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div style="margin:0 0 8px 0; color:#2b3b50; font-size:13px;">Konfiguration: ${escapeHtml(exportCfgName)} | Export: ${escapeHtml(exportTimeText)}</div>
+    <div class="card" id="exportRoot">
+      ${htmlSvgMarkup}
+    </div>
+  </div>
+  <div class="tip" id="exportTip"></div>
+  <script>
+    (function () {
+      var root = document.getElementById('exportRoot');
+      var tip = document.getElementById('exportTip');
+      if (!root || !tip) return;
+      var hits = root.querySelectorAll('.trend-export-hit');
+      var svg = root.querySelector('svg');
+      function hideTip() { tip.style.display = 'none'; }
+
+      function parsePoints(el) {
+        if (el.__points) return el.__points;
+        var raw = el.getAttribute('data-points') || '[]';
+        try {
+          var parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) parsed = [];
+          el.__points = parsed;
+        } catch (_) {
+          el.__points = [];
+        }
+        return el.__points;
+      }
+
+      function nearestPoint(points, x) {
+        if (!points || !points.length) return null;
+        var best = points[0];
+        var dist = Math.abs((best.x || 0) - x);
+        for (var i = 1; i < points.length; i++) {
+          var p = points[i];
+          var d = Math.abs((p.x || 0) - x);
+          if (d < dist) { best = p; dist = d; }
+        }
+        return best;
+      }
+
+      function showTip(ev) {
+        var el = ev.currentTarget;
+        var points = parsePoints(el);
+        if (!svg || !points.length) {
+          var fallback = el.getAttribute('data-tip') || '';
+          if (!fallback) return hideTip();
+          tip.textContent = fallback;
+          tip.style.display = 'block';
+          tip.style.left = (ev.clientX + 12) + 'px';
+          tip.style.top = (ev.clientY + 12) + 'px';
+          return;
+        }
+
+        var p = svg.createSVGPoint();
+        p.x = ev.clientX;
+        p.y = ev.clientY;
+        var local = p.matrixTransform(svg.getScreenCTM().inverse());
+        var nearest = nearestPoint(points, local.x);
+        if (!nearest) return hideTip();
+
+        var label = el.getAttribute('data-label') || '';
+        var unit = el.getAttribute('data-unit') || '';
+        var isBool = el.getAttribute('data-bool') === '1';
+        var val = (nearest.v !== undefined && nearest.v !== null) ? String(nearest.v) : '';
+        if (isBool) {
+          val = nearest.d || (Number(nearest.v) >= 0.5 ? 'true' : 'false');
+        }
+        if (val && unit) val = val + ' ' + unit;
+        var ts = nearest.ts ? new Date(Number(nearest.ts)).toLocaleString('de-DE') : '';
+        tip.textContent = label + ' | Wert: ' + val + ' | Zeit: ' + ts;
+        tip.style.display = 'block';
+        tip.style.left = (ev.clientX + 12) + 'px';
+        tip.style.top = (ev.clientY + 12) + 'px';
+      }
+      for (var i = 0; i < hits.length; i++) {
+        hits[i].addEventListener('mousemove', showTip, false);
+        hits[i].addEventListener('mouseleave', hideTip, false);
+      }
+      root.addEventListener('mouseleave', hideTip, false);
+    })();
+  <\/script>
+</body>
+</html>`;
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exportBaseName}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  if (formatLower === 'png') {
+    const svgBlob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    try {
+      const viewBox = String(clone.getAttribute('viewBox') || '0 0 1000 260');
+      const vb = viewBox.split(/[\s,]+/).map(Number);
+      const vbWidth = Number.isFinite(vb[2]) ? vb[2] : 1000;
+      const vbHeight = Number.isFinite(vb[3]) ? vb[3] : 260;
+      const scale = 2;
+
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('SVG konnte nicht als Bild geladen werden.'));
+        el.src = svgUrl;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(vbWidth * scale));
+      canvas.height = Math.max(1, Math.round(vbHeight * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas-Kontext nicht verfügbar.');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!pngBlob) throw new Error('PNG-Erzeugung fehlgeschlagen.');
+
+      const pngUrl = URL.createObjectURL(pngBlob);
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = `${exportBaseName}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(pngUrl);
+    } finally {
+      URL.revokeObjectURL(svgUrl);
+    }
+    return;
+  }
+
+  const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${exportBaseName}.svg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function syncPanelStateFromInputs(panelEl) {
+  const st = panelState.get(panelEl);
+  if (!st) return;
+  st.selectedConnIds = getCheckedValues(panelEl.querySelector('.conn-checklist'));
+  st.selectedLpIds = getCheckedValues(panelEl.querySelector('.lp-checklist'));
+  st.limit = Number(panelEl.querySelector('.limit-input').value) || 100000;
+  st.fromTs = fromInputDateTimeValue(panelEl.querySelector('.from-input').value, Date.now() - 3600_000);
+  st.toTs = fromInputDateTimeValue(panelEl.querySelector('.to-input').value, Date.now());
+  st.relativeRangeMs = Math.max(60_000, st.toTs - st.fromTs);
+}
+
+function syncLiveIntervalOnly(panelEl) {
+  const st = panelState.get(panelEl);
+  if (!st) return;
+  st.liveMs = Math.max(1000, Number(panelEl.querySelector('.live-interval-input').value || 5) * 1000);
+}
+
+function mergeIncrementalRows(st, incomingRows, limit) {
+  const existing = Array.isArray(st.lastRows) ? st.lastRows : [];
+  const map = new Map();
+  for (const r of existing) {
+    map.set(`${r.logpointId}|${r.ts}|${r.value}`, r);
+  }
+  for (const r of incomingRows) {
+    map.set(`${r.logpointId}|${r.ts}|${r.value}`, r);
+  }
+  const merged = Array.from(map.values()).sort((a, b) => Number(b.ts) - Number(a.ts));
+  if (merged.length > limit) return merged.slice(0, limit);
+  return merged;
+}
+
+function renderRowsIntoTable(panelEl, rows, appendOnly) {
+  const tbody = panelEl.querySelector('tbody');
+  if (!appendOnly) tbody.innerHTML = '';
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    const connLabel = connNameById.get(String(r.connectionId)) || String(r.connectionId || '');
+    const unit = r.unit || getUnitForLogpointId(r.logpointId);
+    const valueTxt = withUnit(r.value === null || r.value === undefined ? '' : r.value, unit);
+    tr.innerHTML = `<td>${escapeHtml(new Date(Number(r.ts)).toLocaleString('de-DE'))}</td>
+      <td>${escapeHtml(connLabel)}</td>
+      <td>${escapeHtml(r.displayName || '')}</td>
+      <td>${escapeHtml(valueTxt)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function capTableRows(panelEl, maxRows) {
+  const tbody = panelEl.querySelector('tbody');
+  if (!tbody) return;
+  while (tbody.rows.length > maxRows) {
+    tbody.deleteRow(tbody.rows.length - 1);
+  }
+}
+
+async function loadPanelData(panelEl, opts = {}) {
+  const incremental = !!opts.incremental;
+  const connIds = getCheckedValues(panelEl.querySelector('.conn-checklist'));
+  const lpIds = getCheckedValues(panelEl.querySelector('.lp-checklist'));
+  const limit = Number(panelEl.querySelector('.limit-input').value) || 100000;
+  const st = panelState.get(panelEl);
+  const inputFrom = fromInputDateTimeValue(panelEl.querySelector('.from-input').value, Date.now() - 3600_000);
+  const fromTs = incremental && st && Number.isFinite(st.lastCursorTs) ? st.lastCursorTs + 1 : inputFrom;
+  const toTs = incremental ? Date.now() : fromInputDateTimeValue(panelEl.querySelector('.to-input').value, Date.now());
+  const status = panelEl.querySelector('.panel-status');
+
+  status.textContent = incremental ? 'Live-Update...' : 'Lade...';
+  if (!incremental) {
+    const tbody = panelEl.querySelector('tbody');
+    tbody.innerHTML = '';
+  }
+
+  try {
+    const res = await fetch(api('/archive/query'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connectionIds: connIds, logpointIds: lpIds, from: fromTs, to: toTs, limit })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || ('HTTP ' + res.status));
+
+    const rows = Array.isArray(json.rows) ? json.rows : [];
+    if (st) {
+      if (incremental) {
+        const sortedNew = rows.slice().sort((a, b) => Number(a.ts) - Number(b.ts));
+        st.lastRows = mergeIncrementalRows(st, sortedNew, limit);
+        renderRowsIntoTable(panelEl, st.lastRows, false);
+      } else {
+        renderRowsIntoTable(panelEl, rows, false);
+        st.lastRows = rows.slice();
+      }
+
+      capTableRows(panelEl, limit);
+
+      const cursorBase = incremental ? (st.lastCursorTs || 0) : (inputFrom - 1);
+      const newestTs = rows.reduce((m, r) => Math.max(m, Number(r.ts) || 0), cursorBase);
+      st.lastCursorTs = newestTs;
+      st.selectedConnIds = connIds.slice();
+      st.selectedLpIds = lpIds.slice();
+      st.limit = limit;
+      st.fromTs = inputFrom;
+      st.toTs = toTs;
+    }
+
+    if (incremental) {
+      status.textContent = rows.length ? `${rows.length} neue Datensaetze hinzugefuegt` : 'Keine neuen Datensaetze';
+      panelEl.querySelector('.to-input').value = toInputDateTimeValue(toTs);
+    } else {
+      status.textContent = `${rows.length} Datensaetze geladen`;
+    }
+    renderTrend(panelEl);
+  } catch (e) {
+    status.textContent = 'Fehler: ' + String(e.message || e);
+  }
+}
+
+function updateLiveUi(panelEl, st) {
+  const btn = panelEl.querySelector('.live-btn');
+  if (!btn) return;
+  btn.classList.toggle('btn--primary', !!st.liveEnabled);
+  btn.textContent = st.liveEnabled ? 'Live: An' : 'Live: Aus';
+}
+
+function stopPanelLive(st) {
+  if (st && st.liveTimer) {
+    clearInterval(st.liveTimer);
+    st.liveTimer = null;
+  }
+}
+
+async function togglePanelLive(panelEl) {
+  const st = panelState.get(panelEl);
+  if (!st) return;
+  syncPanelStateFromInputs(panelEl);
+  if (st.liveEnabled) {
+    st.liveEnabled = false;
+    stopPanelLive(st);
+    updateLiveUi(panelEl, st);
+    return;
+  }
+
+  st.liveEnabled = true;
+  updateLiveUi(panelEl, st);
+  if (!Array.isArray(st.lastRows) || st.lastRows.length === 0) {
+    await loadPanelData(panelEl, { incremental: false });
+  }
+  stopPanelLive(st);
+  st.liveTimer = setInterval(() => {
+    loadPanelData(panelEl, { incremental: true });
+  }, st.liveMs);
+}
+
+function zoomTrend(panelEl, factor) {
+  const st = panelState.get(panelEl);
+  if (!st || !Array.isArray(st.lastRows) || !st.lastRows.length) return;
+  const numeric = st.lastRows.map((r) => Number(r.ts)).filter((n) => Number.isFinite(n));
+  if (!numeric.length) return;
+  const dataMin = Math.min(...numeric);
+  const dataMax = Math.max(...numeric);
+  const current = st.trendViewport || { minTs: dataMin, maxTs: dataMax };
+  const center = (current.minTs + current.maxTs) / 2;
+  const half = ((current.maxTs - current.minTs) * factor) / 2;
+  const minTs = Math.max(dataMin, center - half);
+  const maxTs = Math.min(dataMax, center + half);
+  if (!(maxTs > minTs)) return;
+  st.trendViewport = { minTs, maxTs };
+  renderTrend(panelEl);
+}
+
+function panTrend(panelEl, ratio) {
+  const st = panelState.get(panelEl);
+  if (!st || !Array.isArray(st.lastRows) || !st.lastRows.length) return;
+  const numeric = st.lastRows.map((r) => Number(r.ts)).filter((n) => Number.isFinite(n));
+  if (!numeric.length) return;
+  const dataMin = Math.min(...numeric);
+  const dataMax = Math.max(...numeric);
+  const current = st.trendViewport || { minTs: dataMin, maxTs: dataMax };
+  const span = current.maxTs - current.minTs;
+  const delta = span * ratio;
+  let minTs = current.minTs + delta;
+  let maxTs = current.maxTs + delta;
+  if (minTs < dataMin) {
+    maxTs += (dataMin - minTs);
+    minTs = dataMin;
+  }
+  if (maxTs > dataMax) {
+    minTs -= (maxTs - dataMax);
+    maxTs = dataMax;
+  }
+  if (!(maxTs > minTs)) return;
+  st.trendViewport = { minTs, maxTs };
+  renderTrend(panelEl);
+}
+
+function renderPanels() {
+  prunePanelConfigsByMode();
+  panelGrid.className = `panel-grid mode-${mode}`;
+  panelGrid.innerHTML = '';
+
+  for (let i = 1; i <= mode; i++) {
+    const cfg = getPanelConfig(i);
+    if (typeof cfg.tableCollapsed !== 'boolean') cfg.tableCollapsed = false;
+    if (EMBED_MODE) {
+      cfg.trendEnabled = true;
+      cfg.tableCollapsed = true;
+    }
+    const panel = document.createElement('section');
+    panel.className = 'panel archive-panel';
+    panel.setAttribute('data-panel-index', String(i));
+    panel.innerHTML = `
+      <div class="archive-head">
+        <div class="head-title-wrap">
+          <h3 class="panel-title"></h3>
+          <span class="embed-config-controls">
+            <select class="embed-config-select" aria-label="Trendkonfiguration auswählen" title="Trendkonfiguration auswählen"></select>
+          </span>
+          <span class="panel-notice" aria-live="polite"></span>
+        </div>
+        <div class="live-controls">
+          <button class="btn live-btn" type="button">Live: Aus</button>
+          <label class="muted-small" style="display:flex;align-items:center;gap:.25rem;">Zyklus
+            <input type="number" min="1" step="1" class="live-interval-input" style="width:4.5rem;" value="5">s
+          </label>
+        </div>
+        <div class="head-actions">
+          <span class="panel-config-actions" style="display:inline-flex; gap:.35rem;">
+            <button class="btn" type="button" data-panel-action="load-config">Konfiguration laden</button>
+            <button class="btn" type="button" data-panel-action="save-config">Konfiguration speichern</button>
+            <button class="btn" type="button" data-panel-action="embed-url">Embed URL</button>
+          </span>
+          <button class="btn" type="button" data-action="export">Export CSV</button>
+          <button class="btn btn--primary load-panel-btn">Laden</button>
+        </div>
+      </div>
+
+      <div class="control-grid">
+        <label class="conn-control">Verbindungen
+          <div class="pick-tools">
+            <button class="btn small pick-all" data-target="conn" type="button">Alle wählen</button>
+            <button class="btn small pick-none" data-target="conn" type="button">Keine wählen</button>
+          </div>
+          <div class="checklist conn-checklist"></div>
+        </label>
+
+        <label class="lp-control">Logpoints
+          <div class="pick-tools">
+            <button class="btn small pick-all" data-target="lp" type="button">Alle wählen</button>
+            <button class="btn small pick-none" data-target="lp" type="button">Keine wählen</button>
+          </div>
+          <div class="checklist lp-checklist"></div>
+        </label>
+
+        <label>Zeitbereich
+          <div class="time-row">
+            <div class="quick-btns">
+              <button class="btn small quick-btn" data-q="1h">1h</button>
+              <button class="btn small quick-btn" data-q="24h">24h</button>
+              <button class="btn small quick-btn" data-q="7d">7d</button>
+              <button class="btn small quick-btn" data-q="30d">30d</button>
+            </div>
+            <div class="date-range">
+              <input type="datetime-local" class="from-input">
+              <span>bis</span>
+              <input type="datetime-local" class="to-input">
+            </div>
+          </div>
+        </label>
+
+        <label class="limit-control">Maximale Datenpunkte
+          <input type="number" class="limit-input" min="1" max="100000" value="100000">
+        </label>
+      </div>
+
+      <div class="panel-status muted-small" style="margin-top:.5rem;">Bereit</div>
+
+      <div class="trend-toggle-row">
+        <button class="btn trend-toggle-btn" type="button" aria-label="Trendansicht einklappen" title="Trendansicht ein- oder ausklappen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>
+        </button>
+        <span class="muted-small">Trendansicht</span>
+      </div>
+
+      <div class="trend-wrap">
+        <svg class="trend-svg" viewBox="0 0 1000 260" aria-label="Trendansicht"></svg>
+        <div class="trend-tooltip"></div>
+        <div class="pick-tools" style="margin-top:.4rem;">
+          <button class="btn small icon-btn" type="button" data-trend="zoom-in" data-tip="Zoom hinein" title="Zoom hinein" aria-label="Zoom plus">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5"></circle>
+              <line x1="16" y1="16" x2="21" y2="21"></line>
+              <line x1="11" y1="8.5" x2="11" y2="13.5"></line>
+              <line x1="8.5" y1="11" x2="13.5" y2="11"></line>
+            </svg>
+          </button>
+          <button class="btn small icon-btn" type="button" data-trend="zoom-out" data-tip="Zoom heraus" title="Zoom heraus" aria-label="Zoom minus">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5"></circle>
+              <line x1="16" y1="16" x2="21" y2="21"></line>
+              <line x1="8.5" y1="11" x2="13.5" y2="11"></line>
+            </svg>
+          </button>
+          <button class="btn small icon-btn" type="button" data-trend="pan-left" data-tip="Nach links" title="Trend nach links verschieben" aria-label="Nach links verschieben">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="20" y1="12" x2="6" y2="12"></line>
+              <line x1="10" y1="8" x2="6" y2="12"></line>
+              <line x1="10" y1="16" x2="6" y2="12"></line>
+            </svg>
+          </button>
+          <button class="btn small icon-btn" type="button" data-trend="pan-right" data-tip="Nach rechts" title="Trend nach rechts verschieben" aria-label="Nach rechts verschieben">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="4" y1="12" x2="18" y2="12"></line>
+              <line x1="14" y1="8" x2="18" y2="12"></line>
+              <line x1="14" y1="16" x2="18" y2="12"></line>
+            </svg>
+          </button>
+          <button class="btn small icon-btn" type="button" data-trend="reset" data-tip="Reset" title="Trendansicht zuruecksetzen" aria-label="Trendansicht zuruecksetzen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 12a8 8 0 1 0 2.4-5.7"></path>
+              <polyline points="4,4 4,9 9,9"></polyline>
+            </svg>
+          </button>
+          <select class="export-format-select" title="Exportformat wählen" aria-label="Exportformat wählen">
+            <option value="svg" selected>SVG</option>
+            <option value="png">PNG</option>
+            <option value="html">HTML</option>
+          </select>
+          <button class="btn small icon-btn" type="button" data-trend="export" data-tip="Trend exportieren" title="Trend exportieren" aria-label="Trendansicht exportieren">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="12" y1="4" x2="12" y2="15"></line>
+              <polyline points="8,11 12,15 16,11"></polyline>
+              <rect x="5" y="16" width="14" height="4" rx="1"></rect>
+            </svg>
+          </button>
+        </div>
+        <div class="trend-legend"></div>
+        <div class="trend-note">Trendansicht wird ueber den Pfeil oberhalb ein- oder ausgeklappt.</div>
+      </div>
+
+      <div class="table-collapse-row">
+        <button class="btn table-collapse-btn" type="button" aria-label="Tabelle einklappen" title="Tabelle ein- oder ausklappen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>
+        </button>
+        <span class="muted-small">Tabelle</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Zeit</th>
+              <th>Verbindung</th>
+              <th>Name</th>
+              <th>Wert</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    `;
+
+    panelGrid.appendChild(panel);
+    panelState.set(panel, cfg);
+  updatePanelTitle(panel);
+    if (cfg.liveTimer) clearInterval(cfg.liveTimer);
+    cfg.liveTimer = null;
+
+    const connSel = panel.querySelector('.conn-checklist');
+    for (const c of connections) {
+      const id = String(c.id || c.endpoint || '');
+      const row = document.createElement('label');
+      row.className = 'check-item';
+      const checked = cfg.selectedConnIds.includes(id) ? 'checked' : '';
+      row.innerHTML = `<input type="checkbox" value="${escapeHtml(id)}" ${checked}><span>${escapeHtml(c.name || c.endpoint || c.id)}</span>`;
+      connSel.appendChild(row);
+    }
+
+    const fromInput = panel.querySelector('.from-input');
+    const toInput = panel.querySelector('.to-input');
+    const limitInput = panel.querySelector('.limit-input');
+    const liveIntInput = panel.querySelector('.live-interval-input');
+
+    fromInput.value = toInputDateTimeValue(cfg.fromTs || (Date.now() - 3600_000));
+    toInput.value = toInputDateTimeValue(cfg.toTs || Date.now());
+    limitInput.value = String(cfg.limit || 100000);
+    liveIntInput.value = String(Math.max(1, Math.round((cfg.liveMs || 5000) / 1000)));
+    const fmtSelInit = panel.querySelector('.export-format-select');
+    if (fmtSelInit && cfg.exportFormat) {
+      fmtSelInit.value = String(cfg.exportFormat);
+    }
+
+    connSel.addEventListener('change', () => {
+      markPanelAsCustom(panel);
+      syncPanelStateFromInputs(panel);
+      refreshLogpointOptions(panel);
+    });
+    fromInput.addEventListener('change', () => {
+      markPanelAsCustom(panel);
+      syncPanelStateFromInputs(panel);
+    });
+    toInput.addEventListener('change', () => {
+      markPanelAsCustom(panel);
+      syncPanelStateFromInputs(panel);
+    });
+    limitInput.addEventListener('change', () => {
+      markPanelAsCustom(panel);
+      syncPanelStateFromInputs(panel);
+    });
+    liveIntInput.addEventListener('input', (ev) => {
+      ev.stopPropagation();
+      markPanelAsCustom(panel);
+      syncLiveIntervalOnly(panel);
+    });
+    liveIntInput.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        ev.stopPropagation();
+        liveIntInput.blur();
+      }
+    });
+    liveIntInput.addEventListener('change', (ev) => {
+      ev.stopPropagation();
+      const keepConn = getCheckedValues(panel.querySelector('.conn-checklist'));
+      const keepLp = getCheckedValues(panel.querySelector('.lp-checklist'));
+      syncLiveIntervalOnly(panel);
+      if (cfg.liveEnabled) {
+        stopPanelLive(cfg);
+        cfg.liveTimer = setInterval(() => loadPanelData(panel, { incremental: true }), cfg.liveMs);
+      }
+      panel.querySelectorAll('.conn-checklist input[type="checkbox"]').forEach((cb) => {
+        cb.checked = keepConn.includes(cb.value);
+      });
+      panel.querySelectorAll('.lp-checklist input[type="checkbox"]').forEach((cb) => {
+        cb.checked = keepLp.includes(cb.value);
+      });
+      cfg.selectedConnIds = keepConn.slice();
+      cfg.selectedLpIds = keepLp.slice();
+    });
+
+    panel.querySelector('.table-collapse-btn').addEventListener('click', () => {
+      cfg.tableCollapsed = !cfg.tableCollapsed;
+      panel.classList.toggle('table-collapsed', cfg.tableCollapsed);
+      panel.querySelector('.table-collapse-btn').innerHTML = cfg.tableCollapsed
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,10 12,16 18,10"></polyline></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>';
+      panel.querySelector('.table-collapse-btn').setAttribute('aria-label', cfg.tableCollapsed ? 'Tabelle ausklappen' : 'Tabelle einklappen');
+    });
+
+    panel.querySelectorAll('.pick-all').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        markPanelAsCustom(panel);
+        const target = btn.dataset.target;
+        if (target === 'conn') {
+          connSel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = true; });
+          syncPanelStateFromInputs(panel);
+          refreshLogpointOptions(panel);
+          return;
+        }
+        const lpSel = panel.querySelector('.lp-checklist');
+        lpSel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = true; });
+        syncPanelStateFromInputs(panel);
+      });
+    });
+    panel.querySelectorAll('.pick-none').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        markPanelAsCustom(panel);
+        const target = btn.dataset.target;
+        if (target === 'conn') {
+          connSel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+          syncPanelStateFromInputs(panel);
+          refreshLogpointOptions(panel);
+          return;
+        }
+        const lpSel = panel.querySelector('.lp-checklist');
+        lpSel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+        syncPanelStateFromInputs(panel);
+      });
+    });
+    panel.querySelectorAll('.quick-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        markPanelAsCustom(panel);
+        setQuickRange(panel, btn.dataset.q);
+        syncPanelStateFromInputs(panel);
+      });
+    });
+    panel.querySelector('.trend-toggle-btn').addEventListener('click', () => {
+      if (EMBED_MODE) return;
+      const st = panelState.get(panel);
+      st.trendEnabled = !st.trendEnabled;
+      panel.classList.toggle('trend-enabled', st.trendEnabled);
+      panel.querySelector('.trend-toggle-btn').innerHTML = st.trendEnabled
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,10 12,16 18,10"></polyline></svg>';
+      panel.querySelector('.trend-toggle-btn').setAttribute('aria-label', st.trendEnabled ? 'Trendansicht einklappen' : 'Trendansicht ausklappen');
+      if (st.trendEnabled) renderTrend(panel);
+    });
+    panel.querySelector('.live-btn').addEventListener('click', () => togglePanelLive(panel));
+    panel.querySelector('[data-action="export"]').addEventListener('click', () => exportPanelCsv(panel));
+    panel.querySelector('.load-panel-btn').addEventListener('click', () => loadPanelData(panel, { incremental: false }));
+    panel.querySelectorAll('[data-panel-action]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const action = btn.getAttribute('data-panel-action');
+        if (action === 'save-config') {
+          savePanelConfig(panel);
+          return;
+        }
+        if (action === 'load-config') {
+          loadPanelConfig(panel).catch((err) => {
+            alert('Konfiguration konnte nicht geladen werden: ' + String((err && err.message) || err));
+          });
+          return;
+        }
+        if (action === 'embed-url') {
+          createEmbedUrlForPanel(panel).catch((err) => {
+            alert('Embed-URL konnte nicht erstellt werden: ' + String((err && err.message) || err));
+          });
+        }
+      });
+    });
+
+    if (EMBED_MODE) {
+      fillEmbedConfigSelect(panel);
+      const embedSel = panel.querySelector('.embed-config-select');
+      if (embedSel) {
+        embedSel.addEventListener('change', () => {
+          const picked = embedSel.value;
+          if (!picked) return;
+          applyEmbedConfigByName(panel, picked).catch((err) => {
+            alert('Trendkonfiguration konnte nicht geladen werden: ' + String((err && err.message) || err));
+          });
+        });
+      }
+    }
+
+    panel.querySelectorAll('[data-trend]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const action = btn.getAttribute('data-trend');
+        if (action === 'zoom-in') return zoomTrend(panel, 0.6);
+        if (action === 'zoom-out') return zoomTrend(panel, 1.7);
+        if (action === 'pan-left') return panTrend(panel, -0.25);
+        if (action === 'pan-right') return panTrend(panel, 0.25);
+        if (action === 'export') {
+          const fmtSel = panel.querySelector('.export-format-select');
+          const fmt = (fmtSel && fmtSel.value) ? fmtSel.value : 'svg';
+          exportTrend(panel, fmt).catch((err) => {
+            alert('Export fehlgeschlagen: ' + String((err && err.message) || err));
+          });
+          return;
+        }
+        if (action === 'reset') {
+          const st = panelState.get(panel);
+          st.trendViewport = null;
+          renderTrend(panel);
+        }
+      });
+    });
+
+    refreshLogpointOptions(panel);
+    const lpSel = panel.querySelector('.lp-checklist');
+    lpSel.addEventListener('change', () => {
+      markPanelAsCustom(panel);
+      syncPanelStateFromInputs(panel);
+      if (cfg.trendEnabled) renderTrend(panel);
+    });
+    if (cfg.selectedLpIds.length) {
+      lpSel.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+        cb.checked = cfg.selectedLpIds.includes(cb.value);
+      });
+    }
+
+    if (Array.isArray(cfg.lastRows) && cfg.lastRows.length) {
+      renderRowsIntoTable(panel, cfg.lastRows, false);
+      panel.querySelector('.panel-status').textContent = `${cfg.lastRows.length} Datensaetze geladen (wiederhergestellt)`;
+      if (cfg.trendEnabled) renderTrend(panel);
+    }
+
+    panel.classList.toggle('trend-enabled', !!cfg.trendEnabled);
+    panel.querySelector('.trend-toggle-btn').innerHTML = cfg.trendEnabled
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,10 12,16 18,10"></polyline></svg>';
+    panel.querySelector('.trend-toggle-btn').setAttribute('aria-label', cfg.trendEnabled ? 'Trendansicht einklappen' : 'Trendansicht ausklappen');
+    panel.classList.toggle('table-collapsed', !!cfg.tableCollapsed);
+    panel.querySelector('.table-collapse-btn').innerHTML = cfg.tableCollapsed
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,10 12,16 18,10"></polyline></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>';
+    panel.querySelector('.table-collapse-btn').setAttribute('aria-label', cfg.tableCollapsed ? 'Tabelle ausklappen' : 'Tabelle einklappen');
+    updateLiveUi(panel, cfg);
+    if (cfg.liveEnabled) {
+      cfg.liveTimer = setInterval(() => loadPanelData(panel, { incremental: true }), cfg.liveMs || 5000);
+    }
+  }
+
+}
+
+function applyUrlPreset() {
+  const params = new URLSearchParams(location.search);
+  const conn = params.get('connectionId');
+  const lp = params.get('logpointId');
+  if (!conn && !lp) return false;
+
+  const panel = panelGrid.querySelector('.archive-panel');
+  if (!panel) return false;
+
+  if (conn) {
+    const connSel = panel.querySelector('.conn-checklist');
+    Array.from(connSel.querySelectorAll('input[type="checkbox"]')).forEach((cb) => { cb.checked = (cb.value === conn); });
+    refreshLogpointOptions(panel);
+  }
+  if (lp) {
+    const lpSel = panel.querySelector('.lp-checklist');
+    Array.from(lpSel.querySelectorAll('input[type="checkbox"]')).forEach((cb) => { cb.checked = (cb.value === lp); });
+  }
+  syncPanelStateFromInputs(panel);
+  return true;
+}
+
+async function loadBaseData() {
+  const [connRes, lpRes] = await Promise.all([
+    fetch(api('/connections')),
+    fetch(api('/logpoints'))
+  ]);
+
+  const connJson = await connRes.json();
+  const lpJson = await lpRes.json();
+  connections = Array.isArray(connJson) ? connJson : [];
+  logpoints = Array.isArray(lpJson) ? lpJson : [];
+  connNameById = new Map();
+  unitByLogpointId = new Map();
+  decimalsByLogpointId = new Map();
+  for (const c of connections) {
+    const key = String(c.id || c.endpoint || '');
+    const val = String(c.name || c.endpoint || c.id || key);
+    connNameById.set(key, val);
+  }
+  for (const lp of logpoints) {
+    const id = String(lp.id);
+    const unit = lp.unit || lp.engineeringUnit || lp.eu || '';
+    unitByLogpointId.set(id, String(unit || ''));
+    const decRaw = lp.decimals ?? lp.precision ?? lp.formatDecimals;
+    const dec = Number(decRaw);
+    if (Number.isInteger(dec) && dec >= 0 && dec <= 12) {
+      decimalsByLogpointId.set(id, dec);
+    }
+  }
+}
+
+function wireModeButtons() {
+  document.querySelectorAll('.mode-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      mode = Number(btn.dataset.mode) || 1;
+      document.querySelectorAll('.mode-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      renderPanels();
+    });
+  });
+}
+
+loadAllBtn.addEventListener('click', async () => {
+  const panels = Array.from(panelGrid.querySelectorAll('.archive-panel'));
+  for (const p of panels) {
+    await loadPanelData(p, { incremental: false });
+  }
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    document.body.classList.toggle('embed-trend-mode', EMBED_MODE);
+    wireModeButtons();
+    await loadBaseData();
+
+    if (EMBED_MODE) {
+      mode = 1;
+      const embeddedCfg = getEmbedPanelConfigFromUrl();
+      if (embeddedCfg) {
+        embeddedCfg.trendEnabled = true;
+        embeddedCfg.tableCollapsed = true;
+        panelConfigs.set(1, embeddedCfg);
+      } else {
+        const fallback = getPanelConfig(1);
+        fallback.trendEnabled = true;
+        fallback.tableCollapsed = true;
+      }
+    }
+
+    renderPanels();
+
+    if (EMBED_MODE) {
+      const firstPanel = panelGrid.querySelector('.archive-panel');
+      if (firstPanel) {
+        setTimeout(() => { loadPanelData(firstPanel, { incremental: false }); }, 250);
+      }
+      return;
+    }
+
+    const autoLoad = applyUrlPreset();
+    if (autoLoad) {
+      const firstPanel = panelGrid.querySelector('.archive-panel');
+      if (firstPanel) setTimeout(() => { loadPanelData(firstPanel); }, 600);
+    }
+  } catch (e) {
+    panelGrid.innerHTML = `<div class="panel">Fehler beim Laden: ${escapeHtml(String(e.message || e))}</div>`;
+  }
+});
+</script>
+</body>
+</html>

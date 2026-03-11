@@ -83,6 +83,7 @@ router.post('/logpoints/bulk', async (req, res) => {
       return res.status(400).json({ error: 'expected non-empty array in body' });
     }
     const result = await safeCall(() => store.bulkCreate(arr));
+    triggerLoggerRestart();
     if (Array.isArray(result)) {
       return res.json({ count: result.length, items: result });
     }
@@ -131,13 +132,77 @@ router.get('/logpoints/:id/measurements', (req, res) => {
     const id = req.params.id;
     const lp = store.get(id);
     if (!lp) return res.status(404).json({ error: 'Logpoint nicht gefunden' });
-    const fromTs = req.query.from ? Number(req.query.from) : (Date.now() - DEFAULT_QUERY_WINDOW_MS);
+    const requestedFromTs = req.query.from ? Number(req.query.from) : (Date.now() - DEFAULT_QUERY_WINDOW_MS);
+    const createdAtTs = lp.createdAt ? Date.parse(lp.createdAt) : NaN;
+    const fromTs = Number.isFinite(createdAtTs) ? Math.max(requestedFromTs, createdAtTs) : requestedFromTs;
     const toTs = req.query.to ? Number(req.query.to) : Date.now();
     const limit = req.query.limit ? Number(req.query.limit) : DEFAULT_MEASUREMENT_LIMIT;
-    const rows = measurementStore.query(lp.connectionId, id, fromTs, toTs, limit);
+    const rows = measurementStore.query(lp.connectionId, lp.id, fromTs, toTs, limit);
     return res.json(rows);
   } catch (err) {
     console.error('GET /logpoints/:id/measurements error', err);
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+/* POST /api/opcua/archive/query
+ * Body:
+ * {
+ *   connectionIds?: [string],
+ *   logpointIds?: [number|string],
+ *   from?: number,
+ *   to?: number,
+ *   limit?: number
+ * }
+ */
+router.post('/archive/query', (req, res) => {
+  try {
+    const body = req.body || {};
+    const fromTs = body.from ? Number(body.from) : (Date.now() - DEFAULT_QUERY_WINDOW_MS);
+    const toTs = body.to ? Number(body.to) : Date.now();
+    const limit = body.limit ? Number(body.limit) : DEFAULT_MEASUREMENT_LIMIT;
+
+    const connectionIds = Array.isArray(body.connectionIds)
+      ? new Set(body.connectionIds.map((x) => String(x)))
+      : null;
+    const logpointIds = Array.isArray(body.logpointIds)
+      ? new Set(body.logpointIds.map((x) => String(Number(x))).filter((x) => x !== 'NaN'))
+      : null;
+
+    const allLogpoints = store.list() || [];
+    const selectedLogpoints = allLogpoints.filter((lp) => {
+      if (!lp || !lp.connectionId || lp.id === undefined || lp.id === null) return false;
+      if (connectionIds && !connectionIds.has(String(lp.connectionId))) return false;
+      if (logpointIds && !logpointIds.has(String(Number(lp.id)))) return false;
+      return true;
+    });
+
+    if (selectedLogpoints.length === 0) {
+      return res.json({ rows: [], count: 0 });
+    }
+
+    const rows = [];
+    for (const lp of selectedLogpoints) {
+      const createdAtTs = lp.createdAt ? Date.parse(lp.createdAt) : NaN;
+      const effectiveFromTs = Number.isFinite(createdAtTs) ? Math.max(fromTs, createdAtTs) : fromTs;
+      const lpRows = measurementStore.query(lp.connectionId, lp.id, effectiveFromTs, toTs, limit);
+      for (const r of lpRows) {
+        rows.push({
+          ts: r.ts,
+          value: r.value,
+          connectionId: lp.connectionId,
+          logpointId: lp.id,
+          displayName: lp.displayName || lp.browseName || '',
+          nodeId: lp.nodeId || ''
+        });
+      }
+    }
+
+    rows.sort((a, b) => Number(b.ts) - Number(a.ts));
+    const limited = rows.slice(0, Math.max(1, limit));
+    return res.json({ rows: limited, count: limited.length });
+  } catch (err) {
+    console.error('POST /archive/query error', err);
     return res.status(500).json({ error: String(err) });
   }
 });

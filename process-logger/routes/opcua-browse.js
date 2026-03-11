@@ -91,12 +91,29 @@ function nodeIdStringToBuiltinName(nodeIdStr) {
   return String(nodeIdStr);
 }
 
+function displayNameText(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') {
+    return String(v.text || v.value || v.name || '');
+  }
+  return String(v);
+}
+
+function sortReferencesStable(refs) {
+  return (Array.isArray(refs) ? refs.slice() : []).sort((a, b) => {
+    const aName = displayNameText(a && a.displayName) || displayNameText(a && a.browseName) || (a && a.nodeId ? String(a.nodeId) : '');
+    const bName = displayNameText(b && b.displayName) || displayNameText(b && b.browseName) || (b && b.nodeId ? String(b.nodeId) : '');
+    return aName.localeCompare(bName, 'de', { sensitivity: 'base' });
+  });
+}
+
 router.post('/browse', async (req, res) => {
   const body = req.body || {};
   const { endpoint, username, password, securityPolicy } = body;
   const startNodeId = body.startNodeId || 'ObjectsFolder';
   const maxDepth = Number(body.maxDepth || 2);
-  const maxNodes = Number(body.maxNodes || 1000);
+  const maxNodes = Number(body.maxNodes || 5000);
   const nodeClassFilter = normalizeArray(body.nodeClass); // e.g. ['Variable'] or [2]
   const dataTypesFilter = normalizeArray(body.dataTypes); // e.g. ['Double','Int32']
   const displayNameContains = body.displayNameContains ? String(body.displayNameContains).toLowerCase() : null;
@@ -129,6 +146,8 @@ router.post('/browse', async (req, res) => {
 
     const result = [];
     let visited = 0;
+    const emittedNodeIds = new Set();
+    const traversedNodeIds = new Set();
 
     // Check filters using raw ref and enriched node (if present)
     function passesFilters(ref, node) {
@@ -160,12 +179,14 @@ router.post('/browse', async (req, res) => {
       return true;
     }
 
-    async function enrichNode(nodeRef) {
+    async function enrichNode(nodeRef, parentNodeId, depth) {
       const node = {
         nodeId: nodeRef.nodeId && nodeRef.nodeId.toString(),
         browseName: nodeRef.browseName && nodeRef.browseName.toString(),
         displayName: nodeRef.displayName && (nodeRef.displayName.text || nodeRef.displayName.value || nodeRef.displayName),
         nodeClass: nodeRef.nodeClass !== undefined ? nodeRef.nodeClass : null,
+        parentNodeId: parentNodeId ? String(parentNodeId) : null,
+        depth: Number.isFinite(depth) ? depth : 0,
         dataType: '',
         value: undefined
       };
@@ -196,6 +217,9 @@ router.post('/browse', async (req, res) => {
     async function browseNode(nodeId, depth) {
       if (visited >= maxNodes) return;
       if (depth > maxDepth) return;
+      const nodeKey = String(nodeId || '');
+      if (traversedNodeIds.has(nodeKey)) return;
+      traversedNodeIds.add(nodeKey);
 
       let browseResult;
       try {
@@ -219,6 +243,16 @@ router.post('/browse', async (req, res) => {
         }
       } catch (e) { /* ignore */ }
 
+      // Deduplicate sibling references by target NodeId to avoid repeated children.
+      const seenRefTargets = new Set();
+      refs = sortReferencesStable(refs).filter((r) => {
+        const targetId = r && r.nodeId ? String(r.nodeId) : '';
+        if (!targetId) return true;
+        if (seenRefTargets.has(targetId)) return false;
+        seenRefTargets.add(targetId);
+        return true;
+      });
+
       for (const ref of refs) {
         if (visited >= maxNodes) break;
 
@@ -232,10 +266,16 @@ router.post('/browse', async (req, res) => {
           }
         }
 
-        const node = await enrichNode(ref);
+        const node = await enrichNode(ref, nodeId, depth + 1);
 
         if (passesFilters(ref, node)) {
+          const emittedKey = String(node.nodeId || '');
+          if (emittedKey && emittedNodeIds.has(emittedKey)) {
+            await browseNode(ref.nodeId, depth + 1);
+            continue;
+          }
           result.push(node);
+          if (emittedKey) emittedNodeIds.add(emittedKey);
           visited++;
         }
 

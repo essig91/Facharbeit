@@ -24,12 +24,6 @@
 const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
-const crypto = require('crypto');
-
-function genId() {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  return 'id-' + Date.now().toString(36) + '-' + Math.floor(Math.random() * 1e9).toString(36);
-}
 
 const dataDir = process.env.PROCESS_LOGGER_DATA_DIR || '/opt/process-logger/data';
 const dbPath = path.join(dataDir, 'logpoints.db');
@@ -38,6 +32,12 @@ function ensureDir() {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   }
+}
+
+function toIntId(id) {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
 }
 
 /**
@@ -123,6 +123,15 @@ function ensureColumns(db) {
         console.warn('logpoint-store: could not add column updatedAt:', e && e.message);
       }
     }
+    // changeThreshold
+    if (!colNames.includes('changeThreshold')) {
+      try {
+        db.prepare("ALTER TABLE logpoints ADD COLUMN changeThreshold REAL DEFAULT 0.1;").run();
+        console.info('logpoint-store: added column changeThreshold');
+      } catch (e) {
+        console.warn('logpoint-store: could not add column changeThreshold:', e && e.message);
+      }
+    }
     // In Zukunft: weitere Spalten prüfen
   } catch (e) {
     console.warn('logpoint-store: ensureColumns failed to read table info:', e && e.message);
@@ -172,7 +181,7 @@ function openDb() {
   // wird CREATE TABLE IF NOT EXISTS die bestehende Struktur nicht verändern.
   db.exec(`
     CREATE TABLE IF NOT EXISTS logpoints (
-      id TEXT PRIMARY KEY,
+      id INTEGER PRIMARY KEY,
       connectionId TEXT,
       nodeId TEXT,
       browseName TEXT,
@@ -182,6 +191,7 @@ function openDb() {
       samplingIntervalMs INTEGER,
       isAlarm INTEGER,
       decimals INTEGER DEFAULT 2,
+      changeThreshold REAL DEFAULT 0.1,
       createdAt TEXT,
       updatedAt TEXT
     );
@@ -219,7 +229,7 @@ function openDb() {
 function mapRow(row) {
   if (!row) return null;
   return {
-    id: row.id,
+    id: Number(row.id),
     connectionId: row.connectionId,
     nodeId: row.nodeId,
     browseName: row.browseName,
@@ -229,6 +239,7 @@ function mapRow(row) {
     samplingIntervalMs: Number(row.samplingIntervalMs || 0),
     isAlarm: !!row.isAlarm,
     decimals: Number(row.decimals !== undefined ? row.decimals : 2),
+    changeThreshold: Number(row.changeThreshold !== undefined && row.changeThreshold !== null ? row.changeThreshold : 0.1),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -251,9 +262,10 @@ module.exports = {
   },
 
   get(id) {
-    if (!id) return null;
+    const intId = toIntId(id);
+    if (!intId) return null;
     const stmt = db.prepare('SELECT * FROM logpoints WHERE id = @id LIMIT 1');
-    const row = stmt.get({ id: String(id) });
+    const row = stmt.get({ id: intId });
     return mapRow(row);
   },
 
@@ -263,8 +275,9 @@ module.exports = {
     // Normalize dataType before storing
     const normalizedDt = normalizeDataType(obj.dataType, obj.exampleValue);
 
+    const explicitId = toIntId(obj.id);
     const row = {
-      id: obj.id || genId(),
+      id: explicitId,
       connectionId: obj.connectionId || null,
       nodeId: obj.nodeId || '',
       browseName: obj.browseName || '',
@@ -274,29 +287,47 @@ module.exports = {
       samplingIntervalMs: Number(obj.samplingIntervalMs || 1000),
       isAlarm: obj.isAlarm ? 1 : 0,
       decimals: Number(obj.decimals !== undefined ? obj.decimals : 2),
+      changeThreshold: Number(obj.changeThreshold !== undefined ? obj.changeThreshold : 0.1),
       createdAt: obj.createdAt || now,
       updatedAt: now
     };
-    const stmt = db.prepare(`INSERT OR REPLACE INTO logpoints
-      (id, connectionId, nodeId, browseName, displayName, dataType, unit, samplingIntervalMs, isAlarm, decimals, createdAt, updatedAt)
-      VALUES (@id,@connectionId,@nodeId,@browseName,@displayName,@dataType,@unit,@samplingIntervalMs,@isAlarm,@decimals,@createdAt,@updatedAt)
-    `);
-    stmt.run(row);
-    return mapRow(row);
+    let insertedId;
+    if (row.id) {
+      const stmt = db.prepare(`INSERT OR REPLACE INTO logpoints
+        (id, connectionId, nodeId, browseName, displayName, dataType, unit, samplingIntervalMs, isAlarm, decimals, changeThreshold, createdAt, updatedAt)
+        VALUES (@id,@connectionId,@nodeId,@browseName,@displayName,@dataType,@unit,@samplingIntervalMs,@isAlarm,@decimals,@changeThreshold,@createdAt,@updatedAt)
+      `);
+      stmt.run(row);
+      insertedId = row.id;
+    } else {
+      const stmt = db.prepare(`INSERT INTO logpoints
+        (connectionId, nodeId, browseName, displayName, dataType, unit, samplingIntervalMs, isAlarm, decimals, changeThreshold, createdAt, updatedAt)
+        VALUES (@connectionId,@nodeId,@browseName,@displayName,@dataType,@unit,@samplingIntervalMs,@isAlarm,@decimals,@changeThreshold,@createdAt,@updatedAt)
+      `);
+      const info = stmt.run(row);
+      insertedId = Number(info.lastInsertRowid);
+    }
+    return this.get(insertedId);
   },
 
   bulkCreate(arr) {
     if (!Array.isArray(arr) || arr.length === 0) return [];
     const now = (new Date()).toISOString();
-    const insert = db.prepare(`INSERT OR REPLACE INTO logpoints
-      (id, connectionId, nodeId, browseName, displayName, dataType, unit, samplingIntervalMs, isAlarm, decimals, createdAt, updatedAt)
-      VALUES (@id,@connectionId,@nodeId,@browseName,@displayName,@dataType,@unit,@samplingIntervalMs,@isAlarm,@decimals,@createdAt,@updatedAt)
+    const insertWithId = db.prepare(`INSERT OR REPLACE INTO logpoints
+      (id, connectionId, nodeId, browseName, displayName, dataType, unit, samplingIntervalMs, isAlarm, decimals, changeThreshold, createdAt, updatedAt)
+      VALUES (@id,@connectionId,@nodeId,@browseName,@displayName,@dataType,@unit,@samplingIntervalMs,@isAlarm,@decimals,@changeThreshold,@createdAt,@updatedAt)
     `);
+    const insertNoId = db.prepare(`INSERT INTO logpoints
+      (connectionId, nodeId, browseName, displayName, dataType, unit, samplingIntervalMs, isAlarm, decimals, changeThreshold, createdAt, updatedAt)
+      VALUES (@connectionId,@nodeId,@browseName,@displayName,@dataType,@unit,@samplingIntervalMs,@isAlarm,@decimals,@changeThreshold,@createdAt,@updatedAt)
+    `);
+    const created = [];
     const insertMany = db.transaction((items) => {
       for (const it of items) {
         const normalizedDt = normalizeDataType(it.dataType, it.exampleValue);
+        const explicitId = toIntId(it.id);
         const row = {
-          id: it.id || genId(),
+          id: explicitId,
           connectionId: it.connectionId || null,
           nodeId: it.nodeId || '',
           browseName: it.browseName || '',
@@ -306,19 +337,27 @@ module.exports = {
           samplingIntervalMs: Number(it.samplingIntervalMs || 1000),
           isAlarm: it.isAlarm ? 1 : 0,
           decimals: Number(it.decimals !== undefined ? it.decimals : 2),
+          changeThreshold: Number(it.changeThreshold !== undefined ? it.changeThreshold : 0.1),
           createdAt: it.createdAt || now,
           updatedAt: now
         };
-        insert.run(row);
+        if (row.id) {
+          insertWithId.run(row);
+          created.push({ id: row.id });
+        } else {
+          const info = insertNoId.run(row);
+          created.push({ id: Number(info.lastInsertRowid) });
+        }
       }
     });
     insertMany(arr);
-    // Return inserted rows' ids (consistent with previous behavior)
-    return arr.map(it => ({ id: it.id || genId() }));
+    return created;
   },
 
   update(id, patch) {
-    const cur = this.get(id);
+    const intId = toIntId(id);
+    if (!intId) return null;
+    const cur = this.get(intId);
     if (!cur) return null;
     const fields = {};
     if (patch.unit !== undefined) fields.unit = String(patch.unit);
@@ -331,19 +370,22 @@ module.exports = {
       fields.dataType = normalizeDataType(patch.dataType, patch.exampleValue);
     }
     if (patch.decimals !== undefined) fields.decimals = Number(patch.decimals);
+    if (patch.changeThreshold !== undefined) fields.changeThreshold = Number(patch.changeThreshold);
     if (Object.keys(fields).length === 0) return this.get(id);
 
     fields.updatedAt = (new Date()).toISOString();
     const sets = Object.keys(fields).map(k => `${k} = @${k}`).join(', ');
-    const params = Object.assign({ id: String(id) }, fields);
+    const params = Object.assign({ id: intId }, fields);
     const sql = `UPDATE logpoints SET ${sets} WHERE id = @id`;
     db.prepare(sql).run(params);
-    return this.get(id);
+    return this.get(intId);
   },
 
   remove(id) {
+    const intId = toIntId(id);
+    if (!intId) return false;
     const stmt = db.prepare('DELETE FROM logpoints WHERE id = @id');
-    const info = stmt.run({ id: String(id) });
+    const info = stmt.run({ id: intId });
     return info.changes > 0;
   }
 };

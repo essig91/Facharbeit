@@ -15,6 +15,9 @@
     .form-row{display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;}
     .form-row label{min-width:160px;font-weight:600;}
     input[type="text"], input[type="number"], input[type="color"], select{flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;}
+    .input-unit-wrap{position:relative;flex:1;display:flex;align-items:center;}
+    .input-unit-wrap input{padding-right:3.2rem;}
+    .input-unit{position:absolute;right:.7rem;color:#666;font-size:.9rem;pointer-events:none;}
     textarea{width:100%;height:160px;box-sizing:border-box;font-family:monospace;padding:8px;border-radius:6px;border:1px solid #ccc;}
   </style>
 </head>
@@ -104,6 +107,26 @@
               </div>
             </div>
 
+            <hr style="margin:12px 0;border:none;border-top:1px solid #eee">
+
+            <h2>Datenspeicherung</h2>
+
+            <div class="form-row">
+              <label for="pruneAnchorMinutes">Verdichtung redundanter Daten</label>
+              <div class="input-unit-wrap">
+                <input id="pruneAnchorMinutes" type="number" min="1" max="1440" step="1" value="10">
+                <span class="input-unit">min</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="unchangedHeartbeatMinutes">Aktualwert bei unveraenderten Daten</label>
+              <div class="input-unit-wrap">
+                <input id="unchangedHeartbeatMinutes" type="number" min="1" max="1440" step="1" value="5">
+                <span class="input-unit">min</span>
+              </div>
+            </div>
+
           </div>
 
           <div>
@@ -157,7 +180,7 @@ const DEFAULTS = {
     '--radius': '6px',
     '--shell-font': '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
   },
-  logger: { ip: '', subnet: '', gateway: '' }
+  logger: { ip: '', subnet: '', gateway: '', pruneAnchorMinutes: 10, unchangedHeartbeatMinutes: 5 }
 };
 
 const accentColor = document.getElementById('accentColor');
@@ -172,6 +195,8 @@ const radius = document.getElementById('radius');
 const loggerIp = document.getElementById('loggerIp');
 const loggerSubnet = document.getElementById('loggerSubnet');
 const loggerGateway = document.getElementById('loggerGateway');
+const pruneAnchorMinutes = document.getElementById('pruneAnchorMinutes');
+const unchangedHeartbeatMinutes = document.getElementById('unchangedHeartbeatMinutes');
 const btnApplyIp = document.getElementById('btnApplyIp');
 const applyIpResult = document.getElementById('applyIpResult');
 
@@ -322,7 +347,9 @@ async function saveSettings() {
     logger: {
       ip: loggerIp.value.trim(),
       subnet: loggerSubnet.value.trim(),
-      gateway: loggerGateway.value.trim()
+      gateway: loggerGateway.value.trim(),
+      pruneAnchorMinutes: Math.max(1, Math.min(1440, Number(pruneAnchorMinutes.value) || 10)),
+      unchangedHeartbeatMinutes: Math.max(1, Math.min(1440, Number(unchangedHeartbeatMinutes.value) || 5))
     }
   };
 
@@ -454,6 +481,8 @@ btnReset && btnReset.addEventListener('click', () => {
   loggerIp.value = DEFAULTS.logger.ip;
   loggerSubnet.value = DEFAULTS.logger.subnet;
   loggerGateway.value = DEFAULTS.logger.gateway;
+  pruneAnchorMinutes.value = String(DEFAULTS.logger.pruneAnchorMinutes);
+  unchangedHeartbeatMinutes.value = String(DEFAULTS.logger.unchangedHeartbeatMinutes);
   alert('Auf Standard zurückgesetzt (noch nicht gespeichert).');
 });
 
@@ -468,6 +497,12 @@ async function loadSettingsFromServer() {
           if (j.logger.ip) loggerIp.value = j.logger.ip;
           if (j.logger.subnet) loggerSubnet.value = j.logger.subnet.startsWith('/') ? prefixToDotted(j.logger.subnet) : j.logger.subnet;
           if (j.logger.gateway) loggerGateway.value = j.logger.gateway;
+          if (j.logger.pruneAnchorMinutes !== undefined && j.logger.pruneAnchorMinutes !== null) {
+            pruneAnchorMinutes.value = String(j.logger.pruneAnchorMinutes);
+          }
+          if (j.logger.unchangedHeartbeatMinutes !== undefined && j.logger.unchangedHeartbeatMinutes !== null) {
+            unchangedHeartbeatMinutes.value = String(j.logger.unchangedHeartbeatMinutes);
+          }
         }
       } else { loadThemeToForm(DEFAULTS.theme); }
     } else { loadThemeToForm(DEFAULTS.theme); }
@@ -482,6 +517,8 @@ async function loadSettingsFromServer() {
 document.addEventListener('DOMContentLoaded', () => {
   wireThemeInputs();
   loadThemeToForm(DEFAULTS.theme);
+  pruneAnchorMinutes.value = String(DEFAULTS.logger.pruneAnchorMinutes);
+  unchangedHeartbeatMinutes.value = String(DEFAULTS.logger.unchangedHeartbeatMinutes);
   loadSettingsFromServer().catch(e => { console.warn('init error', e); });
 });
 </script>
