@@ -166,7 +166,9 @@
     .config-collapse-row { margin:.2rem 0 .35rem 0; display:flex; align-items:center; gap:.25rem; }
     .config-collapse-btn { width:1.8rem; min-width:1.8rem; height:1.8rem; padding:.2rem; display:inline-flex; align-items:center; justify-content:center; }
     .config-collapse-btn svg { width:1rem; height:1rem; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
-    .control-grid > label { display:flex; flex-direction:column; gap:.25rem; font-size:.9rem; min-width:0; }
+    .control-grid > label,
+    .control-grid > .control-field { display:flex; flex-direction:column; gap:.25rem; font-size:.9rem; min-width:0; }
+    .field-label { font-size:.9rem; }
     .conn-control,
     .lp-control {
       width: 100%;
@@ -218,6 +220,7 @@
     .quick-btns { display:flex; gap:.35rem; flex-wrap:wrap; }
     .date-range { display:flex; gap:.4rem; align-items:center; flex-wrap:nowrap; }
     .date-range input[type="datetime-local"] { min-width: 13rem; }
+    .time-range-apply-btn { white-space: nowrap; }
     .table-wrap { max-height: 420px; overflow:auto; margin-top:.6rem; border:1px solid #e5e5e5; border-radius:6px; }
     .archive-panel.table-collapsed .table-wrap { display:none; }
     .table-collapse-row { margin-top:.55rem; display:flex; align-items:center; gap:.25rem; }
@@ -2588,13 +2591,13 @@ function renderPanels() {
           <div class="checklist lp-checklist"></div>
         </label>
 
-        <label class="time-control">Zeitbereich
+        <div class="time-control control-field"><span class="field-label">Zeitbereich</span>
           <div class="time-row">
             <div class="quick-btns">
-              <button class="btn small quick-btn" data-q="1h">1h</button>
-              <button class="btn small quick-btn" data-q="24h">24h</button>
-              <button class="btn small quick-btn" data-q="7d">7d</button>
-              <button class="btn small quick-btn" data-q="30d">30d</button>
+              <button class="btn small quick-btn" data-q="1h" type="button">1h</button>
+              <button class="btn small quick-btn" data-q="24h" type="button">24h</button>
+              <button class="btn small quick-btn" data-q="7d" type="button">7d</button>
+              <button class="btn small quick-btn" data-q="30d" type="button">30d</button>
               <span class="live-controls">
                 <button class="btn live-btn" type="button">Live: Aus</button>
                 <label class="muted-small" style="display:flex;align-items:center;gap:.25rem;">Zyklus
@@ -2606,14 +2609,15 @@ function renderPanels() {
               <input type="datetime-local" class="from-input">
               <span>bis</span>
               <input type="datetime-local" class="to-input">
+              <button class="btn small time-range-apply-btn" type="button">Zeitbereich bestätigen</button>
             </div>
           </div>
-        </label>
+        </div>
 
-        <label class="limit-control"><span class="limit-label">Maximale Datenpunkte</span>
+        <div class="limit-control control-field"><span class="limit-label">Maximale Datenpunkte</span>
           <input type="number" class="limit-input" min="1" max="100000" value="20000">
           <button class="btn btn--primary load-panel-btn" type="button" style="margin-top:.45rem; align-self:flex-start;">Laden</button>
-        </label>
+        </div>
       </div>
 
       <div class="panel-status muted-small" style="margin-top:.5rem;">Bereit</div>
@@ -2668,6 +2672,7 @@ function renderPanels() {
             <option value="svg" selected>SVG</option>
             <option value="png">PNG</option>
             <option value="html">HTML</option>
+            <option value="embedded">Embedded</option>
           </select>
           <button class="btn small icon-btn" type="button" data-trend="export" data-tip="Trend exportieren" title="Trend exportieren" aria-label="Trendansicht exportieren">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -2748,13 +2753,19 @@ function renderPanels() {
     fromInput.addEventListener('change', () => {
       markPanelAsCustom(panel);
       syncPanelStateFromInputs(panel);
-      reloadPanelOnConfigChange();
     });
     toInput.addEventListener('change', () => {
       markPanelAsCustom(panel);
       syncPanelStateFromInputs(panel);
-      reloadPanelOnConfigChange();
     });
+    const timeRangeApplyBtn = panel.querySelector('.time-range-apply-btn');
+    if (timeRangeApplyBtn) {
+      timeRangeApplyBtn.addEventListener('click', () => {
+        markPanelAsCustom(panel);
+        syncPanelStateFromInputs(panel);
+        reloadPanelOnConfigChange();
+      });
+    }
     limitInput.addEventListener('change', () => {
       markPanelAsCustom(panel);
       syncPanelStateFromInputs(panel);
@@ -2914,6 +2925,12 @@ function renderPanels() {
         if (action === 'export') {
           const fmtSel = panel.querySelector('.export-format-select');
           const fmt = (fmtSel && fmtSel.value) ? fmtSel.value : 'svg';
+          if (fmt === 'embedded') {
+            createEmbedUrlForPanel(panel).catch((err) => {
+              alert('Embed-URL konnte nicht erstellt werden: ' + String((err && err.message) || err));
+            });
+            return;
+          }
           exportTrend(panel, fmt).catch((err) => {
             alert('Export fehlgeschlagen: ' + String((err && err.message) || err));
           });

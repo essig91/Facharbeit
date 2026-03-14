@@ -142,14 +142,165 @@ router.delete('/logpoints/:id', requireAdministrator, async (req, res) => {
 const DEFAULT_QUERY_WINDOW_MS = 60 * 60 * 1000; // 1 Stunde
 const DEFAULT_MEASUREMENT_LIMIT = 1000;
 
+function sampleRowsAcrossRange(rows, maxCount) {
+  const src = Array.isArray(rows) ? rows : [];
+  const target = Math.max(1, Number(maxCount) || DEFAULT_MEASUREMENT_LIMIT);
+  if (src.length <= target) return src.slice().sort((a, b) => Number(b.ts) - Number(a.ts));
+
+  const uniqueRowsByIdentity = (list) => {
+    const seen = new Set();
+    const out = [];
+    for (const row of list) {
+      const key = `${row.logpointId || ''}|${row.ts}|${row.value}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(row);
+    }
+    return out;
+  };
+
+  const sampleSeriesRowsPreservingCorners = (rowsAsc, pointsTarget) => {
+    if (!Array.isArray(rowsAsc) || rowsAsc.length <= pointsTarget) return Array.isArray(rowsAsc) ? rowsAsc.slice() : [];
+    const n = rowsAsc.length;
+    if (pointsTarget <= 2) return [rowsAsc[0], rowsAsc[n - 1]];
+
+    const middle = rowsAsc.slice(1, n - 1);
+    const pairBuckets = Math.max(1, Math.floor((pointsTarget - 2) / 2));
+    const bucketSize = middle.length / pairBuckets;
+    const picked = [rowsAsc[0]];
+
+    for (let i = 0; i < pairBuckets; i++) {
+      const start = Math.floor(i * bucketSize);
+      const rawEnd = Math.floor((i + 1) * bucketSize);
+      const end = Math.max(start + 1, Math.min(middle.length, rawEnd));
+      const bucket = middle.slice(start, end);
+      if (!bucket.length) continue;
+
+      const numeric = [];
+      for (let b = 0; b < bucket.length; b++) {
+        const num = Number(bucket[b].value);
+        if (Number.isFinite(num)) numeric.push({ idx: b, value: num });
+      }
+
+      if (numeric.length >= 2) {
+        let minIdx = numeric[0].idx;
+        let maxIdx = numeric[0].idx;
+        let minVal = numeric[0].value;
+        let maxVal = numeric[0].value;
+
+        for (const cand of numeric) {
+          if (cand.value < minVal) {
+            minVal = cand.value;
+            minIdx = cand.idx;
+          }
+          if (cand.value > maxVal) {
+            maxVal = cand.value;
+            maxIdx = cand.idx;
+          }
+        }
+
+        if (minIdx === maxIdx) {
+          picked.push(bucket[minIdx]);
+        } else {
+          const firstIdx = Math.min(minIdx, maxIdx);
+          const secondIdx = Math.max(minIdx, maxIdx);
+          picked.push(bucket[firstIdx], bucket[secondIdx]);
+        }
+      } else {
+        picked.push(bucket[0]);
+        if (bucket.length > 1) picked.push(bucket[bucket.length - 1]);
+      }
+    }
+
+    picked.push(rowsAsc[n - 1]);
+    let out = uniqueRowsByIdentity(picked.sort((a, b) => Number(a.ts) - Number(b.ts)));
+
+    if (out.length > pointsTarget) {
+      const keep = [out[0]];
+      const inner = out.slice(1, out.length - 1);
+      const wantedInner = Math.max(0, pointsTarget - 2);
+      if (wantedInner > 0 && inner.length > 0) {
+        const step = inner.length / wantedInner;
+        for (let i = 0; i < wantedInner; i++) {
+          const idx = Math.min(inner.length - 1, Math.floor(i * step));
+          keep.push(inner[idx]);
+        }
+      }
+      keep.push(out[out.length - 1]);
+      out = uniqueRowsByIdentity(keep.sort((a, b) => Number(a.ts) - Number(b.ts)));
+    }
+
+    return out;
+  };
+
+  const grouped = new Map();
+  for (const row of src) {
+    const lpId = String(row.logpointId || '');
+    if (!grouped.has(lpId)) grouped.set(lpId, []);
+    grouped.get(lpId).push(row);
+  }
+
+  const stats = Array.from(grouped.entries()).map(([lpId, series]) => {
+    const sortedAsc = series.slice().sort((a, b) => Number(a.ts) - Number(b.ts));
+    return { lpId, sortedAsc, count: sortedAsc.length, quota: 0 };
+  });
+  const total = stats.reduce((sum, s) => sum + s.count, 0);
+
+  for (const s of stats) {
+    const proportional = Math.floor((target * s.count) / Math.max(1, total));
+    s.quota = Math.max(2, Math.min(s.count, proportional || 2));
+  }
+
+  let allocated = stats.reduce((sum, s) => sum + s.quota, 0);
+  if (allocated < target) {
+    const sortedByRemaining = stats.slice().sort((a, b) => (b.count - b.quota) - (a.count - a.quota));
+    let guard = 0;
+    while (allocated < target && guard < 500000) {
+      guard++;
+      let changed = false;
+      for (const s of sortedByRemaining) {
+        if (allocated >= target) break;
+        if (s.quota >= s.count) continue;
+        s.quota += 1;
+        allocated += 1;
+        changed = true;
+      }
+      if (!changed) break;
+    }
+  } else if (allocated > target) {
+    const sortedByReducible = stats.slice().sort((a, b) => (b.quota - 2) - (a.quota - 2));
+    let guard = 0;
+    while (allocated > target && guard < 500000) {
+      guard++;
+      let changed = false;
+      for (const s of sortedByReducible) {
+        if (allocated <= target) break;
+        if (s.quota <= 2) continue;
+        s.quota -= 1;
+        allocated -= 1;
+        changed = true;
+      }
+      if (!changed) break;
+    }
+  }
+
+  const sampled = [];
+  for (const s of stats) {
+    const reduced = sampleSeriesRowsPreservingCorners(s.sortedAsc, s.quota);
+    for (const row of reduced) sampled.push(row);
+  }
+
+  const deduped = uniqueRowsByIdentity(sampled.sort((a, b) => Number(b.ts) - Number(a.ts)));
+  if (deduped.length <= target) return deduped;
+  return deduped.slice(0, target);
+}
+
 router.get('/logpoints/:id/measurements', (req, res) => {
   try {
     const id = req.params.id;
     const lp = store.get(id);
     if (!lp) return res.status(404).json({ error: 'Logpoint nicht gefunden' });
-    const requestedFromTs = req.query.from ? Number(req.query.from) : (Date.now() - DEFAULT_QUERY_WINDOW_MS);
-    const createdAtTs = lp.createdAt ? Date.parse(lp.createdAt) : NaN;
-    const fromTs = Number.isFinite(createdAtTs) ? Math.max(requestedFromTs, createdAtTs) : requestedFromTs;
+    const fromTs = req.query.from ? Number(req.query.from) : (Date.now() - DEFAULT_QUERY_WINDOW_MS);
     const toTs = req.query.to ? Number(req.query.to) : Date.now();
     const limit = req.query.limit ? Number(req.query.limit) : DEFAULT_MEASUREMENT_LIMIT;
     const rows = measurementStore.query(lp.connectionId, lp.id, fromTs, toTs, limit);
@@ -199,10 +350,8 @@ router.post('/archive/query', (req, res) => {
     const rows = [];
     let totalAvailable = 0;
     for (const lp of selectedLogpoints) {
-      const createdAtTs = lp.createdAt ? Date.parse(lp.createdAt) : NaN;
-      const effectiveFromTs = Number.isFinite(createdAtTs) ? Math.max(fromTs, createdAtTs) : fromTs;
-      totalAvailable += Number((typeof measurementStore.count === 'function' ? measurementStore.count(lp.connectionId, lp.id, effectiveFromTs, toTs) : 0) || 0);
-      const lpRows = measurementStore.query(lp.connectionId, lp.id, effectiveFromTs, toTs, limit);
+      totalAvailable += Number((typeof measurementStore.count === 'function' ? measurementStore.count(lp.connectionId, lp.id, fromTs, toTs) : 0) || 0);
+      const lpRows = measurementStore.query(lp.connectionId, lp.id, fromTs, toTs, limit);
       for (const r of lpRows) {
         rows.push({
           ts: r.ts,
@@ -215,8 +364,7 @@ router.post('/archive/query', (req, res) => {
       }
     }
 
-    rows.sort((a, b) => Number(b.ts) - Number(a.ts));
-    const limited = rows.slice(0, Math.max(1, limit));
+    const limited = sampleRowsAcrossRange(rows, limit);
     return res.json({ rows: limited, count: limited.length, totalAvailable });
   } catch (err) {
     console.error('POST /archive/query error', err);

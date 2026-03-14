@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NTP-API Bedienung</title>
+
+  <!--
+    Einfache Styles für die Demo-UI.
+    Keine externen Abhängigkeiten, damit die Seite offline und lokal funktioniert.
+  -->
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 760px; margin: 2rem auto; padding: 1rem; }
+    label { display:block; margin: .5rem 0; }
+    input[type="text"] { width: 100%; padding: .4rem; font-size: 1rem; }
+    button { padding: .5rem 1rem; font-size: 1rem; margin-top: .5rem; }
+    pre { background:#f6f8fa; padding: .8rem; border:1px solid #e1e4e8; white-space:pre-wrap; }
+    .warn { color: #8a1f11; background:#fff0f0; padding:.5rem; border-radius:4px; margin-bottom:1rem; }
+  </style>
+</head>
+<body>
+  <h1>NTP konfigurieren</h1>
+
+  <!-- Warnhinweis: erklärt die Nebenwirkung von makestep -->
+  <div class="warn">
+    Achtung: Mit "Sofort anwenden" (makestep) wird die Systemzeit sofort geändert — das kann laufende Prozesse beeinflussen.
+  </div>
+
+  <!-- Formular: Eingabe des NTP-Servers und Checkbox für sofortiges Anwenden -->
+  <form id="ntpForm">
+    <label>
+      NTP Server (IP oder Hostname)
+      <!--
+        Das Textfeld enthält standardmäßig eine Beispiel-IP.
+        Validierung erfolgt clientseitig nur rudimentär; die API muss serverseitig ebenfalls validieren.
+      -->
+      <input type="text" id="server" placeholder="z. B. 192.168.0.10" required value="192.168.0.10">
+    </label>
+
+    <label>
+      <!-- Checkbox steuert, ob 'makestep' im Wrapper-Skript ausgeführt wird -->
+      <input type="checkbox" id="applyNow"> Sofort anwenden (makestep)
+    </label>
+
+    <!-- Absenden des Formulars löst den Fetch-Request aus -->
+    <button type="submit">Speichern</button>
+  </form>
+
+  <h2>Antwort</h2>
+  <!-- Ausgabefeld: hier erscheinen HTTP-Status und Body -->
+  <pre id="out">Noch keine Aktion.</pre>
+
+  <script>
+    // DOM-Referenzen
+    const form = document.getElementById('ntpForm');
+    const out = document.getElementById('out');
+
+    /*
+      Event-Handler für Formularsubmit.
+      - Verhindert das normale Absende-Verhalten (page reload).
+      - Liest Werte aus den Input-Feldern.
+      - Ruft POST /api/ntp auf (relativer Pfad zur selben Origin).
+      - Zeigt HTTP-Status und Antworttext im <pre>.
+    */
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault(); // verhindert Seitenneuladen
+
+      out.textContent = 'Sende...';
+
+      // Eingabewerte sammeln
+      const server = document.getElementById('server').value.trim();
+      const applyNow = document.getElementById('applyNow').checked;
+
+      // Einfache clientseitige Prüfung, verhindert leere Strings
+      if (!server) {
+        out.textContent = 'Bitte einen Server angeben.';
+        return;
+      }
+
+      try {
+        // Fetch: POST an den API-Endpunkt, JSON-Body
+        // WICHTIG: Die API erwartet Content-Type: application/json
+        const res = await fetch('/api/ntp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ server, applyNow })
+        });
+
+        // Wir lesen die rohe Antwort als Text, damit auch HTML-Fehlerseiten lesbar sind
+        const text = await res.text();
+
+        // Ausgabe: HTTP-Status + Body (lesbar)
+        out.textContent = `HTTP ${res.status}\n\n${text}`;
+
+        // Optional: bei HTTP 200 kann hier ein visueller Erfolg angezeigt werden
+        // if (res.ok) { /* Erfolg: ggf. grüne Meldung anzeigen */ }
+
+      } catch (err) {
+        // Netzwerk- oder Fetch-Fehler (z. B. Server nicht erreichbar)
+        // err.toString() gibt eine kurze Fehlermeldung (z. B. TypeError: Failed to fetch)
+        out.textContent = 'Fehler beim Aufruf der API:\n' + err.toString();
+      }
+    });
+
+    /*
+      Hinweise / Verbesserungsideen (kannst du später ergänzen):
+      - Input-Validierung verbessern (Regex für IP/Hostname).
+      - GET /api/ntp implementieren, um aktuellen Status in der UI anzuzeigen.
+      - Authentifizierung (Token, BasicAuth) hinzufügen, wenn die API nicht nur lokal erreichbar ist.
+      - Bei Erfolg automatisch kurz die chrony-Status-Info anzeigen (zusätzlicher API-Call).
+    */
+  </script>
+</body>
+</html>

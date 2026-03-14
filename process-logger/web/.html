@@ -1,0 +1,142 @@
+<script>
+// --- Ersetzende Versionen für loadList, editConn, testConn mit Cache-Fallback ---
+
+// Lade vorhandene Verbindungen und baue Tabelle mit Aktionen (Bearbeiten, Löschen, Testen)
+async function loadList() {
+  const el = document.getElementById('list');
+  try {
+    const res = await fetch(api('/connections'));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const list = await res.json();
+    // Cache die Liste als Fallback, falls Einzel-Endpoint nicht existiert
+    window._opcuaConnections = Array.isArray(list) ? list : [];
+
+    if (!list.length) { el.innerHTML = '<p>Keine Verbindungen.</p>'; return; }
+
+    let html = '<table><thead><tr><th>ID</th><th>Endpoint</th><th>Policy</th><th>Mode</th><th>Aktionen</th></tr></thead><tbody>';
+    list.forEach(c => {
+      html += `<tr id="row-${escapeHtml(c.id)}">
+        <td>${escapeHtml(c.id)}</td>
+        <td>${escapeHtml(c.endpoint)}</td>
+        <td>${escapeHtml(c.securityPolicy || '')}</td>
+        <td>${escapeHtml(c.securityMode || '')}</td>
+        <td>
+          <button class="small" onclick="editConn('${escapeJs(c.id)}')">Bearbeiten</button>
+          <button class="small" onclick="deleteConn('${escapeJs(c.id)}')">Löschen</button>
+          <button class="small" onclick="testConn('${escapeJs(c.id)}')">Test</button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch (err) {
+    el.innerText = 'Fehler: ' + err.toString();
+    // Falls Laden fehlgeschlagen, leere den Cache
+    window._opcuaConnections = window._opcuaConnections || [];
+  }
+}
+
+// Hilfsfunktion: versuche, eine Connection per API zu laden, fallback auf Cache
+async function getConnectionByIdWithFallback(id) {
+  // Versuch: Server-Endpoint
+  try {
+    const r = await fetch(api('/connections/' + encodeURIComponent(id)));
+    if (r.ok) {
+      return await r.json();
+    }
+    // falls 404 -> fallback unten
+    if (r.status !== 404) {
+      // andere Fehler (z.B. 500) => werfen, damit Aufrufer das erkennt
+      throw new Error('Server antwortete mit ' + r.status);
+    }
+  } catch (err) {
+    // network error => wir versuchen Fallback weiter unten
+    // (fehler wird nicht sofort geworfen, damit Cache-Fallback verwendet werden kann)
+  }
+
+  // Fallback: aus dem beim Laden gecachten Array entnehmen
+  const cache = window._opcuaConnections || [];
+  const found = cache.find(c => String(c.id) === String(id));
+  if (found) return found;
+
+  // nichts gefunden -> Fehler zurückgeben
+  throw new Error('Connection nicht gefunden (weder Server noch Cache)');
+}
+
+// Bearbeiten: lade Connection und fülle Form (Form wird zum Speichern benutzt)
+async function editConn(id) {
+  try {
+    const c = await getConnectionByIdWithFallback(id);
+
+    document.getElementById('connId').value = c.id || '';
+    document.getElementById('name').value = c.name || '';
+    document.getElementById('endpoint').value = c.endpoint || '';
+    document.getElementById('securityPolicy').value = c.securityPolicy || 'None';
+    document.getElementById('securityMode').value = c.securityMode || 'None';
+
+    const authType = (c.authentication && c.authentication.type) || 'anonymous';
+    document.getElementById('authType').value = authType;
+    document.getElementById('authFields').style.display = authType === 'username' ? 'block' : 'none';
+    document.getElementById('authUser').value = (c.authentication && c.authentication.username) || '';
+    document.getElementById('authPass').value = (c.authentication && c.authentication.password) || '';
+
+    document.getElementById('formTitle').innerText = 'Verbindung bearbeiten';
+    document.getElementById('submitBtn').innerText = 'Speichern';
+    document.getElementById('cancelEdit').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    alert('Fehler beim Laden der Connection: ' + err.toString());
+  }
+}
+
+// Test einer Connection: holt die Config und ruft /test auf, Ergebnis wird unterhalb der Zeile angezeigt
+async function testConn(id) {
+  const row = document.getElementById('row-' + id);
+  if (!row) { showGlobal('Zeile nicht gefunden.'); return; }
+
+  // entferne existierende Result-Row falls vorhanden
+  const next = row.nextSibling;
+  if (next && next.classList && next.classList.contains('test-result-row')) {
+    next.remove();
+  }
+
+  // temporäre Zeile mit "läuft..."
+  const tr = document.createElement('tr');
+  tr.classList.add('test-result-row');
+  tr.innerHTML = `<td colspan="5"><div class="muted">Test läuft...</div></td>`;
+  row.parentNode.insertBefore(tr, row.nextSibling);
+
+  try {
+    // hole Connection-Objekt (Server oder Cache)
+    const conn = await getConnectionByIdWithFallback(id);
+
+    const endpoint = conn.endpoint || conn.serverEndpoint || conn.url || conn.host;
+    const username = (conn.authentication && conn.authentication.username) || '';
+    const password = (conn.authentication && conn.authentication.password) || '';
+    const securityPolicy = conn.securityPolicy || 'None';
+
+    const resp = await fetch(api('/test'), {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ endpoint, username, password, securityPolicy })
+    });
+
+    const data = await resp.json();
+    let out;
+    if (!resp.ok) {
+      out = 'Test fehlgeschlagen: ' + (data.error || JSON.stringify(data));
+    } else {
+      out = 'OK: ' + data.ok + '\nExit-Code: ' + data.code + (data.timedOut ? ' (TIMEOUT)' : '') +
+            '\n\n--- STDOUT ---\n' + (data.stdout || '(keine Ausgabe)') +
+            '\n\n--- STDERR ---\n' + (data.stderr || '(keine Fehler)');
+    }
+
+    // ersetze temporäre Zeile durch Ergebnis
+    tr.innerHTML = `<td colspan="5"><div class="result-pre">${escapeHtml(out)}</div></td>`;
+    showGlobal('Test abgeschlossen für ' + id);
+  } catch (err) {
+    tr.innerHTML = `<td colspan="5"><div class="result-pre">Fehler beim Test: ${escapeHtml(err.toString())}</div></td>`;
+    showGlobal('Test fehlgeschlagen für ' + id);
+  }
+}
+</script>

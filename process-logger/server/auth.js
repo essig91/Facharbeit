@@ -237,10 +237,8 @@ function getUserByName(store, username) {
 function allowedPagesByRoles(roles) {
   const level = highestRoleLevel(roles);
   const set = new Set(['index.html']);
-  if (level >= ROLE_LEVELS.Trend) {
-    set.add('data-archive.html');
-  }
   if (level >= ROLE_LEVELS.Beobachten) {
+    set.add('data-archive.html');
     set.add('disturbance-logs.html');
   }
   if (level >= ROLE_LEVELS.Administrator) {
@@ -315,6 +313,18 @@ function requirePageAccess(req, res, next) {
   const page = p.split('/').pop();
   if (page.startsWith('_') || page.startsWith('partial')) return next();
   const roles = (req.auth && req.auth.roles) || [];
+
+  // Datenarchiv:
+  // - Vollseite nur ab Beobachten (Level 2)
+  // - Embedded Trend (embedTrend=1) bereits ab Trend (Level 1)
+  if (String(page).toLowerCase() === 'data-archive.html') {
+    const level = highestRoleLevel(roles);
+    const embedTrend = String((req.query && req.query.embedTrend) || '') === '1';
+    if (embedTrend && level >= ROLE_LEVELS.Trend) return next();
+    if (!embedTrend && level >= ROLE_LEVELS.Beobachten) return next();
+    return res.status(403).type('html').send('<!doctype html><html><head><meta charset="utf-8"><title>403</title></head><body><h1>403</h1><p>Keine Berechtigung für diese Seite.</p></body></html>');
+  }
+
   if (canAccessPage(page, roles)) return next();
   return res.status(403).type('html').send('<!doctype html><html><head><meta charset="utf-8"><title>403</title></head><body><h1>403</h1><p>Keine Berechtigung für diese Seite.</p></body></html>');
 }
