@@ -244,7 +244,7 @@
             <input id="manualDisplayName" placeholder="Anzeigename" style="flex:1">
             <input id="manualUnit" placeholder="Einheit" style="width:8rem">
             <input id="manualInterval" type="number" placeholder="Erfassungsintervall in ms" style="width:8rem" value="1000">
-            <label style="display:inline-flex; align-items:center; gap:.3rem;"><input id="manualIsAlarm" type="checkbox"> Störung</label>
+            <label style="display:inline-flex; align-items:center; gap:.3rem;"><input id="manualIsAlarm" type="checkbox"> Ereignis</label>
             <label style="margin-left:0.5rem;">Dezimalstellen <input id="manualDecimals" type="number" min="0" max="6" value="2" style="width:4rem" disabled></label>
             <label style="margin-left:0.5rem;">Änderungsschwelle <input id="manualThreshold" type="number" min="0" step="0.001" value="0.1" style="width:6rem"></label>
             <button id="btnAddManual" class="btn">Hinzufügen</button>
@@ -463,6 +463,7 @@ function normalizeVariant(v) {
 function isFloatType(dtype) {
   if (!dtype) return false;
   const s = String(dtype).toLowerCase();
+  if (/\b(?:i=)?(?:10|11)\b/.test(s)) return true;
   if (/double|float|real|f32|f64|decimal/.test(s)) return true;
   return false;
 }
@@ -471,7 +472,8 @@ function isIntegerType(dtype) {
   if (!dtype) return false;
   const s = String(dtype).toLowerCase();
   if (s === 'i=3002' || s === '3002') return true;
-  if (/\b(u?int|int|sbyte|byte|word|dword|u?int8|u?int16|u?int32|u?int64|i=)\b/.test(s)) {
+  if (/\b(?:i=)?(?:2|3|4|5|6|7|8|9)\b/.test(s)) return true;
+  if (/\b(integer|unsignedinteger|signedinteger|u?int|u?int8|u?int16|u?int32|u?int64|sbyte|byte|word|dword|short|long)\b/.test(s)) {
     if (/double|float|real|f32|f64/.test(s)) return false;
     return true;
   }
@@ -669,7 +671,7 @@ async function renderAllLogpoints() {
         <th style="white-space:nowrap">Datentyp</th>
         <th style="white-space:nowrap">Einheit</th>
         <th style="white-space:nowrap">Erfassungsintervall</th>
-        <th style="white-space:nowrap">Störung</th>
+        <th style="white-space:nowrap">Ereignis</th>
         <th style="white-space:nowrap">Dezimalstellen</th>
         <th style="white-space:nowrap">Änderungsschwelle</th>
         <th style="white-space:nowrap">Aktueller Wert</th>
@@ -937,7 +939,7 @@ function renderBrowseNodes(nodes) {
       <span>Anzeigename</span>
       <span>Einheit</span>
       <span>Intervall</span>
-      <span>Störung</span>
+      <span>Ereignis</span>
       <span>Dez.</span>
       <span>Wert</span>
     </span>
@@ -1001,7 +1003,7 @@ function renderBrowseNodes(nodes) {
         <input data-displayname idx="${idx}" type="text" value="${escapeHtml(displayNameVal)}" title="Anzeigename">
         <input data-unit idx="${idx}" type="text" title="Einheit" placeholder="Einheit">
         <input data-interval type="number" idx="${idx}" value="1000" title="Erfassungsintervall (ms)">
-        <label class="muted-small" title="Störung"><input data-isalarm idx="${idx}" type="checkbox" ${alarmDisabled ? 'disabled' : ''}>Störung</label>
+        <label class="muted-small" title="Ereignis"><input data-isalarm idx="${idx}" type="checkbox" ${alarmDisabled ? 'disabled' : ''}>Ereignis</label>
         <input data-decimals type="number" idx="${idx}" min="0" max="6" value="${isFloatType(dt) ? 2 : 0}" title="Dezimalstellen" ${isFloatType(dt) ? '' : 'disabled'}>
         <span class="muted-small" title="Wert">${escapeHtml(String(valDisplay))}</span>
       `;

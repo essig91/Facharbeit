@@ -26,6 +26,7 @@ try {
 
 const store = require('../lib/logpoint-store');
 const measurementStore = require('../lib/measurement-store');
+const disturbanceStore = require('../lib/disturbance-store');
 
 const CONFIG_FILE = path.join(__dirname, '..', 'config', 'opcua-connections.json');
 const SETTINGS_FILE_PRIMARY = path.resolve('/opt/process-logger/data/settings.json');
@@ -325,6 +326,13 @@ async function connectAndSubscribe(conn, logpoints) {
             }
           }
 
+          disturbanceStore.processMeasurement({
+            logpointId: lp.id,
+            ts,
+            rawValue: raw,
+            formattedValue: value
+          });
+
           if (snap) {
             snap.rawValue = raw;
             snap.value = value;
@@ -344,6 +352,14 @@ async function connectAndSubscribe(conn, logpoints) {
       const now = Date.now();
       for (const snap of snapshotsByLogpoint.values()) {
         if (snap.value === undefined) continue;
+
+        disturbanceStore.processMeasurement({
+          logpointId: snap.lpId,
+          ts: now,
+          rawValue: snap.rawValue,
+          formattedValue: snap.value
+        });
+
         if (now - snap.lastWriteTs < snap.cycleMs) continue;
         try {
           const thresholdDominates = isThresholdRelevantDataType(snap.lp) && isNumericValue(snap.rawValue);

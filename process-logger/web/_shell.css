@@ -60,6 +60,11 @@ html,body{
   width:100%;
 }
 
+/* Avoid a short flash of unauthorized menu items before auth/role filtering finishes. */
+.side-nav:not(.nav-ready) .nav-list {
+  visibility: hidden;
+}
+
 /* base link */
 .side-nav .nav-list a,
 .side-nav .nav-list a:visited {

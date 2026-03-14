@@ -1,15 +1,27 @@
 <nav class="side-nav" aria-label="Seitennavigation">
   <div class="brand">Process‑Logger</div>
   <ul class="nav-list" id="navList">
-    <li><a href="index.html" data-path="index.html">Übersicht</a></li>
-    <li><a href="system-settings.html" data-path="system-settings.html">System‑Einstellungen</a></li>
-    <li><a href="logpoints-config.html" data-path="logpoints-config.html">Variablen / Logpoints</a></li>
-    <li><a href="data-archive.html" data-path="data-archive.html">Datenarchiv</a></li>
-    <li><a href="opcua-config.html" data-path="opcua-config.html">OPC UA Verbindungen</a></li>
-    <li><a href="ntp.html" data-path="ntp.html">NTP Konfiguration</a></li>
+    <li><a href="index.html" data-path="index.html" data-min-role="none">Übersicht</a></li>
+    <li><a href="data-archive.html" data-path="data-archive.html" data-min-role="Beobachten">Datenarchiv</a></li>
+    <li><a href="disturbance-logs.html" data-path="disturbance-logs.html" data-min-role="Beobachten">Ereignisprotokolle</a></li>
+    <li><a href="system-settings.html" data-path="system-settings.html" data-min-role="Administrator">System‑Einstellungen</a></li>
+    <li><a href="logpoints-config.html" data-path="logpoints-config.html" data-min-role="Administrator">Variablen / Logpoints</a></li>
+    <li><a href="opcua-config.html" data-path="opcua-config.html" data-min-role="Administrator">OPC UA Verbindungen</a></li>
+    <li><a href="usermanagement.html" data-path="usermanagement.html" data-min-role="Administrator">Benutzerverwaltung</a></li>
+    <li><a href="devtools.html" data-path="devtools.html" data-min-role="Systemadministrator">Entwicklertools</a></li>
   </ul>
 
   <div class="nav-meta">
+    <div style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:10px;">
+      <input id="navLoginUser" type="text" placeholder="Benutzer" style="width:100%;padding:.35rem .45rem;border:1px solid #ccc;border-radius:6px;">
+      <input id="navLoginPass" type="password" placeholder="Passwort" style="width:100%;padding:.35rem .45rem;border:1px solid #ccc;border-radius:6px;">
+      <div style="display:flex;gap:.35rem;align-items:center;">
+        <button id="navLoginBtn" class="btn btn--primary" style="padding:.25rem .55rem;">Login</button>
+        <button id="navLogoutBtn" class="btn" style="padding:.25rem .55rem;">Logout</button>
+      </div>
+      <div id="navAuthState" class="muted" style="font-size:.88rem;line-height:1.25;">Nicht angemeldet</div>
+    </div>
+    <div id="navSystemTime" class="muted" style="font-size:.9rem; line-height:1.35; margin-bottom:12px;">Systemzeit: lädt...</div>
     <div class="muted">Entwicklung</div>
     <div style="margin-top:8px; font-weight:600">Timo Baumann</div>
   </div>

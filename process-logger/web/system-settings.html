@@ -19,6 +19,22 @@
     .input-unit-wrap input{padding-right:3.2rem;}
     .input-unit{position:absolute;right:.7rem;color:#666;font-size:.9rem;pointer-events:none;}
     textarea{width:100%;height:160px;box-sizing:border-box;font-family:monospace;padding:8px;border-radius:6px;border:1px solid #ccc;}
+    .warn { color:#8a1f11; background:#fff0f0; padding:.5rem; border-radius:6px; margin:.4rem 0 .8rem 0; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+    .time-meta { color:var(--text-muted); font-size:.9rem; margin:-.2rem 0 .6rem 0; }
+    .data-storage-section .form-row {
+      display:grid;
+      grid-template-columns:220px minmax(0, 1fr);
+      gap:.5rem;
+      align-items:center;
+    }
+    .data-storage-section .form-row label { min-width:0; }
+    .data-storage-section .input-unit-wrap,
+    .data-storage-section select,
+    .data-storage-section input[type="number"] {
+      width:100%;
+      box-sizing:border-box;
+    }
   </style>
 </head>
 <body>
@@ -107,9 +123,92 @@
               </div>
             </div>
 
+            <div class="form-row" id="ipConfirmRow" style="display:none;">
+              <label>IP bestätigen</label>
+              <div class="row" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                <button id="btnConfirmIpChange" class="btn btn--primary">Änderung bestätigen</button>
+                <button id="btnCancelIpChange" class="btn">Zurücksetzen</button>
+                <span id="ipConfirmInfo" class="muted" style="margin-left:.6rem"></span>
+              </div>
+            </div>
+
+            <hr style="margin:12px 0;border:none;border-top:1px solid #eee">
+
+            <h2>System-Aktionen</h2>
+            <div class="form-row">
+              <label></label>
+              <div class="row" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                <button id="btnRestartLogger" class="btn">Logger-Service neu starten</button>
+                <button id="btnRebootSystem" class="btn">System neu starten</button>
+                <span id="systemActionResult" class="muted" style="margin-left:.6rem"></span>
+              </div>
+            </div>
+
+            <hr style="margin:12px 0;border:none;border-top:1px solid #eee">
+
+            <h2>Uhrzeit</h2>
+            <div class="time-meta" id="timeMetaInfo">Systemzeit wird geladen...</div>
+
+            <div class="form-row">
+              <label for="manualDateTime">Manuelle Uhrzeit</label>
+              <input id="manualDateTime" type="datetime-local">
+            </div>
+
+            <div class="form-row">
+              <label></label>
+              <div class="row">
+                <button id="btnApplyManualTime" class="btn">Uhrzeit manuell setzen</button>
+                <span id="manualTimeResult" class="muted" style="margin-left:.6rem"></span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="timezoneSelect">Zeitzone</label>
+              <select id="timezoneSelect"></select>
+            </div>
+
+            <div class="form-row">
+              <label for="dstEnabled">Sommer-/Winterzeit</label>
+              <span style="display:inline-flex;align-items:center;gap:.45rem;">
+                <input id="dstEnabled" type="checkbox" checked style="max-width:1.2rem;">
+                <span id="dstEnabledText">Automatische Umstellung aktiv</span>
+              </span>
+            </div>
+
+            <div class="form-row">
+              <label></label>
+              <div class="row">
+                <button id="btnApplyTimezone" class="btn">Zeitzone setzen</button>
+                <span id="timezoneResult" class="muted" style="margin-left:.6rem"></span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="ntpSyncEnabled">NTP-Synchronisation aktiv</label>
+              <span style="display:inline-flex;align-items:center;gap:.45rem;">
+                <input id="ntpSyncEnabled" type="checkbox" checked style="max-width:1.2rem;">
+                <span id="ntpSyncStatusText" class="muted">Status wird geladen...</span>
+              </span>
+            </div>
+
+            <div class="form-row">
+              <label for="ntpServer">NTP-Server</label>
+              <input id="ntpServer" type="text" placeholder="z. B. 192.168.0.10" value="192.168.0.10">
+            </div>
+
+            <div class="form-row">
+              <label></label>
+              <div class="row">
+                <button id="btnApplyNtp" class="btn">NTP speichern</button>
+                <span id="ntpResult" class="muted" style="margin-left:.6rem"></span>
+              </div>
+            </div>
+
             <hr style="margin:12px 0;border:none;border-top:1px solid #eee">
 
             <h2>Datenspeicherung</h2>
+
+            <div class="data-storage-section">
 
             <div class="form-row">
               <label for="pruneAnchorMinutes">Verdichtung redundanter Daten</label>
@@ -125,6 +224,41 @@
                 <input id="unchangedHeartbeatMinutes" type="number" min="1" max="1440" step="1" value="5">
                 <span class="input-unit">min</span>
               </div>
+            </div>
+
+            <div class="form-row">
+              <label for="processDataDeleteInterval">Löschumfang pro Schritt</label>
+              <select id="processDataDeleteInterval">
+                <option value="daily">Tagweise</option>
+                <option value="weekly">Wochenweise</option>
+                <option value="monthly" selected>Monatsweise</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label for="processDataCapacityPercent">Max. Anteil Gesamtspeicher</label>
+              <div class="input-unit-wrap">
+                <input id="processDataCapacityPercent" type="number" min="20" max="80" step="1" value="40">
+                <span class="input-unit">%</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="processDataDeleteThresholdPercent">Löschschwelle Auslastung</label>
+              <div class="input-unit-wrap">
+                <input id="processDataDeleteThresholdPercent" type="number" min="20" max="90" step="1" value="90">
+                <span class="input-unit">%</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label></label>
+              <div class="row" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                <button id="btnSaveDataStorage" class="btn btn--primary">Datenspeicherung speichern</button>
+                <span id="dataStorageSaveResult" class="muted"></span>
+              </div>
+            </div>
+
             </div>
 
           </div>
@@ -180,8 +314,19 @@ const DEFAULTS = {
     '--radius': '6px',
     '--shell-font': '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
   },
-  logger: { ip: '', subnet: '', gateway: '', pruneAnchorMinutes: 10, unchangedHeartbeatMinutes: 5 }
+  logger: {
+    ip: '',
+    subnet: '',
+    gateway: '',
+    pruneAnchorMinutes: 10,
+    unchangedHeartbeatMinutes: 5,
+    processDataDeleteInterval: 'monthly',
+    processDataCapacityPercent: 40,
+    processDataDeleteThresholdPercent: 95
+  }
 };
+
+const ALLOWED_DELETE_INTERVALS = new Set(['daily', 'weekly', 'monthly']);
 
 const accentColor = document.getElementById('accentColor');
 const accentContrast = document.getElementById('accentContrast');
@@ -195,14 +340,97 @@ const radius = document.getElementById('radius');
 const loggerIp = document.getElementById('loggerIp');
 const loggerSubnet = document.getElementById('loggerSubnet');
 const loggerGateway = document.getElementById('loggerGateway');
+const manualDateTime = document.getElementById('manualDateTime');
+const btnApplyManualTime = document.getElementById('btnApplyManualTime');
+const manualTimeResult = document.getElementById('manualTimeResult');
+const ntpSyncEnabled = document.getElementById('ntpSyncEnabled');
+const ntpServer = document.getElementById('ntpServer');
+const btnApplyNtp = document.getElementById('btnApplyNtp');
+const ntpResult = document.getElementById('ntpResult');
+const timezoneSelect = document.getElementById('timezoneSelect');
+const dstEnabled = document.getElementById('dstEnabled');
+const dstEnabledText = document.getElementById('dstEnabledText');
+const btnApplyTimezone = document.getElementById('btnApplyTimezone');
+const timezoneResult = document.getElementById('timezoneResult');
+const timeMetaInfo = document.getElementById('timeMetaInfo');
 const pruneAnchorMinutes = document.getElementById('pruneAnchorMinutes');
 const unchangedHeartbeatMinutes = document.getElementById('unchangedHeartbeatMinutes');
+const processDataDeleteInterval = document.getElementById('processDataDeleteInterval');
+const processDataCapacityPercent = document.getElementById('processDataCapacityPercent');
+const processDataDeleteThresholdPercent = document.getElementById('processDataDeleteThresholdPercent');
+const btnSaveDataStorage = document.getElementById('btnSaveDataStorage');
+const dataStorageSaveResult = document.getElementById('dataStorageSaveResult');
 const btnApplyIp = document.getElementById('btnApplyIp');
 const applyIpResult = document.getElementById('applyIpResult');
+const ipConfirmRow = document.getElementById('ipConfirmRow');
+const btnConfirmIpChange = document.getElementById('btnConfirmIpChange');
+const btnCancelIpChange = document.getElementById('btnCancelIpChange');
+const ipConfirmInfo = document.getElementById('ipConfirmInfo');
+const ntpSyncStatusText = document.getElementById('ntpSyncStatusText');
+const btnRestartLogger = document.getElementById('btnRestartLogger');
+const btnRebootSystem = document.getElementById('btnRebootSystem');
+const systemActionResult = document.getElementById('systemActionResult');
 
 const btnSave = document.getElementById('btnSave');
 const btnReset = document.getElementById('btnReset');
 const previewHeader = document.getElementById('previewHeader');
+let loggerSettingsState = {};
+let timeDisplayTimer = null;
+let ipConfirmTimer = null;
+let ipPendingSyncTimer = null;
+let ipPendingRecoveryTimer = null;
+let ipPendingSyncFailures = 0;
+let pendingIpToken = '';
+let pendingIpIface = 'eth0';
+let pendingIpExpiresAt = 0;
+let pendingIpApplying = false;
+const IP_PENDING_STORAGE_KEY = 'systemSettings.pendingIp.v1';
+const IP_PENDING_BOOTSTRAP_KEY = '__systemSettingsPendingIpBootstrapV1';
+const IP_PENDING_BOOTSTRAP_MAX_MS = 120000;
+let timeBaseMs = Date.now();
+let timeBasePerf = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
+let currentTimezone = 'Europe/Berlin';
+const KNOWN_TIMEZONES = [
+  'Europe/Berlin',
+  'Europe/Zurich',
+  'Europe/Vienna',
+  'Europe/Paris',
+  'Europe/London',
+  'UTC',
+  'Etc/UTC',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Sao_Paulo',
+  'Asia/Tokyo',
+  'Asia/Shanghai',
+  'Asia/Kolkata',
+  'Asia/Dubai',
+  'Australia/Sydney'
+];
+let AVAILABLE_TIMEZONES = KNOWN_TIMEZONES.slice();
+
+function normalizeDeleteInterval(v) {
+  const n = String(v || '').trim().toLowerCase();
+  return ALLOWED_DELETE_INTERVALS.has(n) ? n : DEFAULTS.logger.processDataDeleteInterval;
+}
+
+function normalizeInteger(v, min, max, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function getDataStorageSettingsFromForm() {
+  return {
+    pruneAnchorMinutes: normalizeInteger(pruneAnchorMinutes && pruneAnchorMinutes.value, 1, 1440, DEFAULTS.logger.pruneAnchorMinutes),
+    unchangedHeartbeatMinutes: normalizeInteger(unchangedHeartbeatMinutes && unchangedHeartbeatMinutes.value, 1, 1440, DEFAULTS.logger.unchangedHeartbeatMinutes),
+    processDataDeleteInterval: normalizeDeleteInterval(processDataDeleteInterval && processDataDeleteInterval.value),
+    processDataCapacityPercent: normalizeInteger(processDataCapacityPercent && processDataCapacityPercent.value, 20, 80, DEFAULTS.logger.processDataCapacityPercent),
+    processDataDeleteThresholdPercent: normalizeInteger(processDataDeleteThresholdPercent && processDataDeleteThresholdPercent.value, 20, 90, DEFAULTS.logger.processDataDeleteThresholdPercent)
+  };
+}
 
 function applyTheme(theme) {
   if (!theme) return;
@@ -276,6 +504,18 @@ function isValidSubnet(s) {
   return false;
 }
 
+function isValidNtpServerInput(v) {
+  const s = String(v || '').trim();
+  if (!s) return false;
+  // Validate dotted IPv4 strictly when numeric form is used.
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(s)) {
+    const oct = s.split('.').map((x) => Number(x));
+    return oct.length === 4 && oct.every((n) => Number.isInteger(n) && n >= 0 && n <= 255);
+  }
+  // Accept regular hostnames / FQDNs.
+  return /^[a-zA-Z0-9.-]+$/.test(s);
+}
+
 function dottedMaskToPrefix(mask) {
   if (!mask) return null;
   mask = String(mask).trim();
@@ -342,15 +582,15 @@ async function populateNetworkFromSystem(iface='eth0') {
 }
 
 async function saveSettings() {
+  const mergedLogger = Object.assign({}, loggerSettingsState || {});
+  mergedLogger.ip = loggerIp.value.trim();
+  mergedLogger.subnet = loggerSubnet.value.trim();
+  mergedLogger.gateway = loggerGateway.value.trim();
+  Object.assign(mergedLogger, getDataStorageSettingsFromForm());
+
   const cfg = {
     theme: getThemeFromForm(),
-    logger: {
-      ip: loggerIp.value.trim(),
-      subnet: loggerSubnet.value.trim(),
-      gateway: loggerGateway.value.trim(),
-      pruneAnchorMinutes: Math.max(1, Math.min(1440, Number(pruneAnchorMinutes.value) || 10)),
-      unchangedHeartbeatMinutes: Math.max(1, Math.min(1440, Number(unchangedHeartbeatMinutes.value) || 5))
-    }
+    logger: mergedLogger
   };
 
   if (cfg.logger.ip && !isValidIp(cfg.logger.ip)) { alert('Ungültige IP/Hostname für das System.'); return; }
@@ -375,6 +615,8 @@ async function saveSettings() {
       return;
     }
 
+    loggerSettingsState = Object.assign({}, mergedLogger);
+
     alert('Einstellungen gespeichert.');
     // update applied theme immediately (and cache)
     try { localStorage.removeItem('__APP_SHELL_THEME_CACHE_v1'); } catch(e){}
@@ -382,6 +624,46 @@ async function saveSettings() {
   } catch (err) {
     console.error('saveSettings error', err);
     alert('Speichern fehlgeschlagen: ' + (err.message || String(err)));
+  }
+}
+
+async function saveDataStorageSettings() {
+  if (dataStorageSaveResult) dataStorageSaveResult.textContent = 'Speichere...';
+  if (btnSaveDataStorage) btnSaveDataStorage.disabled = true;
+
+  try {
+    let base = {};
+    try {
+      const getRes = await fetch('/api/settings', { cache: 'no-store', credentials: 'same-origin' });
+      if (getRes.ok) {
+        const j = await getRes.json().catch(() => null);
+        if (j && typeof j === 'object') base = j;
+      }
+    } catch (_) {}
+
+    const mergedLogger = Object.assign({}, (base && base.logger) || {}, loggerSettingsState || {});
+    Object.assign(mergedLogger, getDataStorageSettingsFromForm());
+
+    const cfg = Object.assign({}, base, { logger: mergedLogger });
+    const res = await fetch('/api/settings', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg)
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => null);
+      throw new Error(txt || `HTTP ${res.status}`);
+    }
+
+    loggerSettingsState = Object.assign({}, mergedLogger);
+    if (dataStorageSaveResult) dataStorageSaveResult.textContent = 'Gespeichert';
+  } catch (err) {
+    if (dataStorageSaveResult) dataStorageSaveResult.textContent = 'Fehler';
+    alert('Datenspeicherung konnte nicht gespeichert werden: ' + (err && err.message ? err.message : String(err)));
+  } finally {
+    if (btnSaveDataStorage) btnSaveDataStorage.disabled = false;
   }
 }
 
@@ -405,6 +687,11 @@ async function applyLoggerIpConfirmed() {
   applyIpResult.textContent = 'Übernehme...';
   btnApplyIp.disabled = true;
 
+  // Show pending UI immediately. During IP switch the /apply response can be
+  // interrupted, so users still need a visible confirmation countdown.
+  showIpPendingUnknownState('IP wird umgestellt. Warte auf Bestätigungsstatus...');
+  savePendingIpBootstrap({ iface: 'eth0', token: '', expiresAt: 0 });
+
   try {
     const payload = { iface: 'eth0', ip: ip, subnet: normalizedSubnet, gateway: gateway || undefined };
     const res = await fetch('/api/network/apply', {
@@ -420,48 +707,1027 @@ async function applyLoggerIpConfirmed() {
 
     if (!res.ok) {
       const err = (json && json.error) ? json.error : (txt || `HTTP ${res.status}`);
+      hideIpConfirmUi();
       applyIpResult.textContent = 'Fehler';
       alert('Fehler beim Anwenden der IP: ' + err);
       btnApplyIp.disabled = false;
       return;
     }
 
-    applyIpResult.textContent = 'Änderung ausgelöst, warte auf Zuweisung...';
-    const pollIntervalMs = 2000;
-    const timeoutMs = 120000;
-    const deadline = Date.now() + timeoutMs;
-    const targetPure = ip.split('/')[0];
-
-    while (Date.now() < deadline) {
-      try {
-        const sres = await fetch('/api/network/status?iface=eth0', { cache: 'no-store', credentials: 'same-origin' });
-        if (sres.ok) {
-          const sjson = await sres.json().catch(()=>null);
-          if (sjson && Array.isArray(sjson.ips)) {
-            const found = sjson.ips.some(e => (e || '').split('/')[0] === targetPure);
-            if (found) {
-              applyIpResult.textContent = 'Übernommen';
-              const dotted = prefixToDotted(normalizedSubnet);
-              if (dotted) loggerSubnet.value = dotted;
-              await saveSettings();
-              btnApplyIp.disabled = false;
-              return;
-            }
-          }
-        }
-      } catch (e) { console.warn('poll error', e); }
-      await new Promise(r => setTimeout(r, pollIntervalMs));
+    if (json && json.unchanged) {
+      hideIpConfirmUi();
+      if (applyIpResult) {
+        applyIpResult.textContent = json.message || 'Keine Änderung: Konfiguration bereits aktiv.';
+      }
+      if (btnApplyIp) btnApplyIp.disabled = false;
+      return;
     }
 
-    applyIpResult.textContent = 'Timeout - evtl. Rollback';
-    alert('Die neue IP wurde nicht innerhalb des Zeitlimits gesetzt. Bitte Logs prüfen.');
+    if (json && json.pending) {
+      applyIpResult.textContent = 'IP geändert. Bestätigung innerhalb von 60 Sekunden erforderlich.';
+      startIpConfirmFlow({
+        token: json.token,
+        iface: (json.iface || 'eth0'),
+        expiresInSec: Number(json.expiresInSec || 60),
+        expiresAtMs: Number(json.expiresAtMs || 0),
+        serverNowMs: Number(json.serverNowMs || 0)
+      });
+      return;
+    }
+
+    // Fallback: actively query backend pending state so confirmation UI is shown
+    // even when /apply response does not include pending details.
+    for (let i = 0; i < 3; i++) {
+      try {
+        const pres = await fetch('/api/network/pending?iface=eth0', { cache: 'no-store', credentials: 'same-origin' });
+        if (pres.ok) {
+          const pdata = await pres.json().catch(() => null);
+          if (pdata && pdata.pending) {
+            applyIpResult.textContent = 'IP geändert. Bestätigung innerhalb von 60 Sekunden erforderlich.';
+            startIpConfirmFlow({
+              token: pdata.token,
+              iface: pdata.iface || 'eth0',
+              expiresInSec: Number(pdata.expiresInSec || 60),
+              expiresAtMs: Number(pdata.expiresAtMs || 0),
+              serverNowMs: Number(pdata.serverNowMs || 0)
+            });
+            return;
+          }
+        }
+      } catch (_) {
+        // Retry shortly below.
+      }
+      if (i < 2) await new Promise((r) => setTimeout(r, 350));
+    }
+
+    applyIpResult.textContent = 'Übernommen';
     btnApplyIp.disabled = false;
   } catch (err) {
     console.error('apply error', err);
-    applyIpResult.textContent = 'Fehler';
-    alert('Unerwarteter Fehler: ' + (err.message || String(err)));
-    btnApplyIp.disabled = false;
+    // Keep confirmation UI visible for likely connection-drop during IP switch.
+    if (applyIpResult) {
+      applyIpResult.textContent = 'Verbindung wird umgestellt. Bitte Bestätigungsstatus abwarten...';
+    }
   }
+}
+
+function stopIpConfirmTimer() {
+  if (ipConfirmTimer) {
+    clearInterval(ipConfirmTimer);
+    ipConfirmTimer = null;
+  }
+}
+
+function stopIpPendingSyncTimer() {
+  if (ipPendingSyncTimer) {
+    clearInterval(ipPendingSyncTimer);
+    ipPendingSyncTimer = null;
+  }
+}
+
+function stopIpPendingRecoveryTimer() {
+  if (ipPendingRecoveryTimer) {
+    clearInterval(ipPendingRecoveryTimer);
+    ipPendingRecoveryTimer = null;
+  }
+}
+
+function startIpPendingRecoveryProbe() {
+  stopIpPendingRecoveryTimer();
+  let attempts = 0;
+  ipPendingRecoveryTimer = setInterval(() => {
+    attempts += 1;
+    syncPendingIpState().catch(() => {});
+    if (attempts >= 20) {
+      stopIpPendingRecoveryTimer();
+      const stillWaiting = ipConfirmRow && ipConfirmRow.style.display !== 'none';
+      if (stillWaiting && btnApplyIp) {
+        btnApplyIp.disabled = false;
+        clearPendingIpBootstrap();
+        if (applyIpResult) {
+          applyIpResult.textContent = 'Bestätigungsstatus derzeit nicht erreichbar. Bitte ggf. Seite erneut laden.';
+        }
+      }
+    }
+  }, 2000);
+}
+
+function readWindowNameJson() {
+  try {
+    const raw = String(window.name || '').trim();
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeWindowNameJson(obj) {
+  try {
+    window.name = JSON.stringify(obj && typeof obj === 'object' ? obj : {});
+  } catch (_) {
+    // Ignore serialization issues.
+  }
+}
+
+function savePendingIpBootstrap(patch) {
+  try {
+    const root = readWindowNameJson();
+    const existing = root[IP_PENDING_BOOTSTRAP_KEY] || {};
+    root[IP_PENDING_BOOTSTRAP_KEY] = {
+      startedAt: Number(existing.startedAt || Date.now()),
+      token: String((patch && patch.token) || existing.token || ''),
+      iface: String((patch && patch.iface) || existing.iface || 'eth0'),
+      expiresAt: Number((patch && patch.expiresAt) || existing.expiresAt || 0),
+      lastSeenAt: Date.now()
+    };
+    writeWindowNameJson(root);
+  } catch (_) {
+    // Ignore state persistence issues.
+  }
+}
+
+function loadPendingIpBootstrap() {
+  try {
+    const root = readWindowNameJson();
+    const raw = root[IP_PENDING_BOOTSTRAP_KEY];
+    if (!raw || typeof raw !== 'object') return null;
+    const startedAt = Number(raw.startedAt || 0);
+    const lastSeenAt = Number(raw.lastSeenAt || 0);
+    const ageMs = Math.max(0, Date.now() - Math.max(startedAt, lastSeenAt, 0));
+    const expiresAt = Number(raw.expiresAt || 0);
+    if (!startedAt || ageMs > IP_PENDING_BOOTSTRAP_MAX_MS || isPendingWindowExpired(expiresAt, 15000)) {
+      delete root[IP_PENDING_BOOTSTRAP_KEY];
+      writeWindowNameJson(root);
+      return null;
+    }
+    return {
+      startedAt,
+      token: String(raw.token || ''),
+      iface: String(raw.iface || 'eth0'),
+      expiresAt: Number(raw.expiresAt || 0),
+      lastSeenAt
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearPendingIpBootstrap() {
+  try {
+    const root = readWindowNameJson();
+    if (root && Object.prototype.hasOwnProperty.call(root, IP_PENDING_BOOTSTRAP_KEY)) {
+      delete root[IP_PENDING_BOOTSTRAP_KEY];
+      writeWindowNameJson(root);
+    }
+  } catch (_) {
+    // Ignore cleanup issues.
+  }
+}
+
+function savePendingIpLocal() {
+  try {
+    if (!pendingIpExpiresAt || pendingIpExpiresAt <= Date.now()) {
+      sessionStorage.removeItem(IP_PENDING_STORAGE_KEY);
+      return;
+    }
+    sessionStorage.setItem(IP_PENDING_STORAGE_KEY, JSON.stringify({
+      token: pendingIpToken || '',
+      iface: pendingIpIface || 'eth0',
+      expiresAt: Number(pendingIpExpiresAt)
+    }));
+  } catch (_) {
+    // Ignore storage issues.
+  }
+}
+
+function loadPendingIpLocal() {
+  try {
+    const raw = sessionStorage.getItem(IP_PENDING_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    const expiresAt = Number(data && data.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      sessionStorage.removeItem(IP_PENDING_STORAGE_KEY);
+      return null;
+    }
+    return {
+      token: String((data && data.token) || ''),
+      iface: String((data && data.iface) || 'eth0'),
+      expiresAt
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function resolvePendingExpiresAtMs(data, fallbackSec = 60) {
+  const expiresAtMs = Number(data && data.expiresAtMs);
+  const serverNowMs = Number(data && data.serverNowMs);
+  if (Number.isFinite(expiresAtMs) && Number.isFinite(serverNowMs) && expiresAtMs > 0) {
+    const remainingMs = Math.max(0, expiresAtMs - serverNowMs);
+    return Date.now() + remainingMs;
+  }
+  const secRaw = Number((data && data.expiresInSec) || 0);
+  if (Number.isFinite(secRaw) && secRaw > 0) {
+    return Date.now() + (Math.max(1, secRaw) * 1000);
+  }
+  return 0;
+}
+
+function isPendingWindowExpired(expiresAtMs, graceMs = 5000) {
+  const exp = Number(expiresAtMs || 0);
+  return Number.isFinite(exp) && exp > 0 && (Date.now() - exp) > graceMs;
+}
+
+function showIpPendingUnknownState(message) {
+  pendingIpToken = '';
+  pendingIpIface = pendingIpIface || 'eth0';
+  pendingIpExpiresAt = 0;
+  pendingIpApplying = true;
+  try { sessionStorage.removeItem(IP_PENDING_STORAGE_KEY); } catch (_) {}
+  savePendingIpBootstrap({ iface: pendingIpIface, token: '', expiresAt: 0 });
+  if (ipConfirmRow) ipConfirmRow.style.display = 'flex';
+  if (btnConfirmIpChange) btnConfirmIpChange.disabled = true;
+  if (btnCancelIpChange) btnCancelIpChange.disabled = true;
+  const msg = message || 'Bestätigungsstatus wird geprüft...';
+  if (ipConfirmInfo) ipConfirmInfo.textContent = msg;
+  if (applyIpResult) applyIpResult.textContent = msg;
+  if (btnApplyIp) btnApplyIp.disabled = true;
+}
+
+function hideIpConfirmUi() {
+  stopIpConfirmTimer();
+  stopIpPendingSyncTimer();
+  stopIpPendingRecoveryTimer();
+  ipPendingSyncFailures = 0;
+  pendingIpToken = '';
+  pendingIpExpiresAt = 0;
+  pendingIpApplying = false;
+  try { sessionStorage.removeItem(IP_PENDING_STORAGE_KEY); } catch (_) {}
+  clearPendingIpBootstrap();
+  if (ipConfirmRow) ipConfirmRow.style.display = 'none';
+  if (ipConfirmInfo) ipConfirmInfo.textContent = '';
+  if (applyIpResult && /Bitte bestätigen|Bestätigungszeit|automatischer Rollback/i.test(String(applyIpResult.textContent || ''))) {
+    applyIpResult.textContent = '';
+  }
+  if (btnConfirmIpChange) btnConfirmIpChange.disabled = false;
+  if (btnCancelIpChange) btnCancelIpChange.disabled = false;
+}
+
+function renderIpConfirmCountdown() {
+  if (!ipConfirmInfo) return;
+  if (!pendingIpExpiresAt || pendingIpExpiresAt <= 0) {
+    const msg = pendingIpApplying
+      ? 'IP-Änderung wird angewendet. Bestätigungszeit läuft bereits...'
+      : 'Bestätigungsstatus wird geprüft...';
+    ipConfirmInfo.textContent = msg;
+    if (applyIpResult) applyIpResult.textContent = msg;
+    return;
+  }
+  const remaining = Math.max(0, Math.ceil((pendingIpExpiresAt - Date.now()) / 1000));
+  if (remaining <= 0) {
+    const overdueMs = Math.max(0, Date.now() - pendingIpExpiresAt);
+    if (overdueMs > 15000) {
+      hideIpConfirmUi();
+      if (btnApplyIp) btnApplyIp.disabled = false;
+      if (applyIpResult) applyIpResult.textContent = 'Zurücksetzen abgeschlossen oder Status nicht mehr verfügbar. Du kannst erneut eine IP setzen.';
+      return;
+    }
+    ipConfirmInfo.textContent = 'Bestätigungszeit abgelaufen. Stelle vorherige Konfiguration wieder her...';
+    if (applyIpResult) applyIpResult.textContent = 'Bestätigungszeit abgelaufen. Automatisches Zurücksetzen läuft...';
+    if (btnConfirmIpChange) btnConfirmIpChange.disabled = true;
+    if (btnCancelIpChange) btnCancelIpChange.disabled = true;
+    stopIpConfirmTimer();
+    syncPendingIpState().catch(() => {});
+    return;
+  }
+  const tokenHint = pendingIpToken ? '' : ' (Verbindung wird synchronisiert...)';
+  const text = `Bitte bestätigen (noch ${remaining}s), sonst automatischer Rollback.${tokenHint}`;
+  ipConfirmInfo.textContent = text;
+  if (applyIpResult) applyIpResult.textContent = text;
+}
+
+async function syncPendingIpState() {
+  const iface = pendingIpIface || 'eth0';
+
+  try {
+    const res = await fetch(`/api/network/pending?iface=${encodeURIComponent(iface)}`, { cache: 'no-store', credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json().catch(() => null);
+
+    if (!data || !data.pending) {
+      if (isPendingWindowExpired(pendingIpExpiresAt, 3000)) {
+        clearPendingIpBootstrap();
+        hideIpConfirmUi();
+        if (btnApplyIp) btnApplyIp.disabled = false;
+        if (applyIpResult) applyIpResult.textContent = 'Bestätigungszeit abgelaufen. Die vorherige IP-Konfiguration wurde wiederhergestellt.';
+        await populateNetworkFromSystem(iface);
+        return;
+      }
+      const bootstrap = loadPendingIpBootstrap();
+      if (bootstrap) {
+        if (isPendingWindowExpired(bootstrap.expiresAt, 3000)) {
+          clearPendingIpBootstrap();
+          hideIpConfirmUi();
+          if (btnApplyIp) btnApplyIp.disabled = false;
+          if (applyIpResult) applyIpResult.textContent = 'Bestätigungszeit abgelaufen. Die vorherige IP-Konfiguration wurde wiederhergestellt.';
+          await populateNetworkFromSystem(iface);
+          return;
+        }
+        const ageMs = Math.max(0, Date.now() - Number(bootstrap.startedAt || Date.now()));
+        if (ageMs <= IP_PENDING_BOOTSTRAP_MAX_MS) {
+          pendingIpApplying = true;
+          if (ipConfirmRow) ipConfirmRow.style.display = 'flex';
+          if (btnConfirmIpChange) btnConfirmIpChange.disabled = !pendingIpToken;
+          if (btnCancelIpChange) btnCancelIpChange.disabled = true;
+          if (ipConfirmInfo) ipConfirmInfo.textContent = 'Bestätigungsstatus wird weiterhin abgefragt...';
+          if (applyIpResult) applyIpResult.textContent = 'Bestätigungsstatus wird weiterhin abgefragt...';
+          if (btnApplyIp) btnApplyIp.disabled = true;
+          return;
+        }
+        clearPendingIpBootstrap();
+      }
+      hideIpConfirmUi();
+      if (btnApplyIp) btnApplyIp.disabled = false;
+      if (applyIpResult) applyIpResult.textContent = 'Keine ausstehende IP-Änderung mehr.';
+      await populateNetworkFromSystem(iface);
+      return;
+    }
+
+    pendingIpApplying = !!(data && data.applying);
+    if (data && data.token) pendingIpToken = String(data.token);
+    if (btnConfirmIpChange) btnConfirmIpChange.disabled = !pendingIpToken;
+    if (btnCancelIpChange) btnCancelIpChange.disabled = !pendingIpToken || pendingIpApplying;
+    pendingIpExpiresAt = resolvePendingExpiresAtMs(data, 60);
+    savePendingIpLocal();
+    ipPendingSyncFailures = 0;
+    renderIpConfirmCountdown();
+  } catch (_) {
+    ipPendingSyncFailures += 1;
+    const expiredLongEnough = pendingIpExpiresAt > 0 && (Date.now() - pendingIpExpiresAt) > 15000;
+    if (expiredLongEnough && ipPendingSyncFailures >= 3) {
+      hideIpConfirmUi();
+      if (btnApplyIp) btnApplyIp.disabled = false;
+      if (applyIpResult) applyIpResult.textContent = 'Bestätigungsstatus nicht erreichbar. Du kannst erneut eine IP setzen.';
+    }
+  }
+}
+
+function startIpConfirmFlow(data) {
+  pendingIpToken = String((data && data.token) || '');
+  pendingIpIface = String((data && data.iface) || 'eth0');
+  pendingIpExpiresAt = resolvePendingExpiresAtMs(data, 60);
+  pendingIpApplying = !!(data && data.applying);
+  savePendingIpLocal();
+  savePendingIpBootstrap({
+    token: pendingIpToken,
+    iface: pendingIpIface,
+    expiresAt: pendingIpExpiresAt
+  });
+
+  if (ipConfirmRow) ipConfirmRow.style.display = 'flex';
+  if (btnConfirmIpChange) btnConfirmIpChange.disabled = !pendingIpToken;
+  if (btnCancelIpChange) btnCancelIpChange.disabled = !pendingIpToken || pendingIpApplying;
+  renderIpConfirmCountdown();
+  stopIpConfirmTimer();
+  ipConfirmTimer = setInterval(renderIpConfirmCountdown, 1000);
+  stopIpPendingSyncTimer();
+  ipPendingSyncTimer = setInterval(() => {
+    syncPendingIpState().catch(() => {});
+  }, 3000);
+  if (btnApplyIp) btnApplyIp.disabled = true;
+}
+
+async function confirmIpChange() {
+  if (!pendingIpToken) {
+    await syncPendingIpState().catch(() => {});
+    if (!pendingIpToken) {
+      alert('Bestätigungsdaten werden noch geladen. Bitte erneut klicken.');
+      return;
+    }
+  }
+  if (btnConfirmIpChange) btnConfirmIpChange.disabled = true;
+  if (btnCancelIpChange) btnCancelIpChange.disabled = true;
+  if (ipConfirmInfo) ipConfirmInfo.textContent = 'Bestätige Änderung...';
+  try {
+    const res = await fetch('/api/network/confirm', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ iface: pendingIpIface, token: pendingIpToken })
+    });
+    const txt = await res.text();
+    let json = null;
+    try { json = txt ? JSON.parse(txt) : null; } catch (_) { json = null; }
+    if (!res.ok || (json && json.error)) {
+      const msg = (json && json.error) || txt || `HTTP ${res.status}`;
+      if (applyIpResult) applyIpResult.textContent = 'Fehler';
+      alert('IP-Bestätigung fehlgeschlagen: ' + msg);
+      if (btnConfirmIpChange) btnConfirmIpChange.disabled = false;
+      if (btnCancelIpChange) btnCancelIpChange.disabled = false;
+      return;
+    }
+    hideIpConfirmUi();
+    if (applyIpResult) applyIpResult.textContent = 'IP-Konfiguration bestätigt.';
+    if (btnApplyIp) btnApplyIp.disabled = false;
+    clearPendingIpBootstrap();
+    showReloadWithNewIpButton();
+  // Fügt einen Button ein, der die Seite mit der neuen IP lädt
+  function showReloadWithNewIpButton() {
+    // Vorherigen Button entfernen
+    let oldBtn = document.getElementById('btnReloadWithNewIp');
+    if (oldBtn && oldBtn.parentNode) oldBtn.parentNode.removeChild(oldBtn);
+    // Button erzeugen
+    const btn = document.createElement('button');
+    btn.id = 'btnReloadWithNewIp';
+    btn.className = 'btn btn--primary';
+    btn.textContent = 'Seite neu laden';
+    btn.style.marginTop = '1rem';
+    btn.onclick = function() {
+      const ip = loggerIp && loggerIp.value ? loggerIp.value.trim() : '';
+      if (!ip) { window.location.reload(); return; }
+      const proto = window.location.protocol;
+      const port = window.location.port ? ':' + window.location.port : '';
+      window.location.href = proto + '//' + ip + port + window.location.pathname;
+    };
+    // Button unterhalb des IP-Formulars einfügen
+    const ipForm = loggerIp && loggerIp.closest('.panel');
+    if (ipForm) {
+      // Suche nach dem letzten .form-row mit IP-Übernehmen oder IP-Bestätigen
+      const rows = ipForm.querySelectorAll('.form-row');
+      let anchor = null;
+      rows.forEach(r => {
+        if (r.innerText && (r.innerText.includes('IP übernehmen') || r.innerText.includes('IP bestätigen'))) anchor = r;
+      });
+      if (anchor) {
+        anchor.appendChild(btn);
+        return;
+      }
+    }
+    // Fallback: an das Ende des Panels
+    if (ipForm) ipForm.appendChild(btn);
+    else document.body.appendChild(btn);
+  }
+  } catch (e) {
+    if (applyIpResult) applyIpResult.textContent = 'Fehler';
+    alert('IP-Bestätigung fehlgeschlagen: ' + (e.message || String(e)));
+    if (btnConfirmIpChange) btnConfirmIpChange.disabled = false;
+    if (btnCancelIpChange) btnCancelIpChange.disabled = false;
+  }
+}
+
+async function cancelIpChange() {
+  if (!pendingIpToken) {
+    await syncPendingIpState().catch(() => {});
+    if (!pendingIpToken) {
+      alert('Rollback-Daten werden noch geladen. Bitte erneut klicken.');
+      return;
+    }
+  }
+  if (btnConfirmIpChange) btnConfirmIpChange.disabled = true;
+  if (btnCancelIpChange) btnCancelIpChange.disabled = true;
+  if (ipConfirmInfo) ipConfirmInfo.textContent = 'Setze auf vorherige IP zurück...';
+  try {
+    const res = await fetch('/api/network/cancel', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ iface: pendingIpIface, token: pendingIpToken })
+    });
+    const txt = await res.text();
+    let json = null;
+    try { json = txt ? JSON.parse(txt) : null; } catch (_) { json = null; }
+    if (!res.ok || (json && json.error)) {
+      const msg = (json && json.error) || txt || `HTTP ${res.status}`;
+      if (applyIpResult) applyIpResult.textContent = 'Fehler';
+      alert('Zurücksetzen fehlgeschlagen: ' + msg);
+      if (btnConfirmIpChange) btnConfirmIpChange.disabled = false;
+      if (btnCancelIpChange) btnCancelIpChange.disabled = false;
+      return;
+    }
+    hideIpConfirmUi();
+    if (applyIpResult) applyIpResult.textContent = 'IP-Konfiguration zurückgesetzt.';
+    if (btnApplyIp) btnApplyIp.disabled = false;
+    clearPendingIpBootstrap();
+    await populateNetworkFromSystem('eth0');
+  } catch (e) {
+    if (applyIpResult) applyIpResult.textContent = 'Fehler';
+    alert('Rollback fehlgeschlagen: ' + (e.message || String(e)));
+    if (btnConfirmIpChange) btnConfirmIpChange.disabled = false;
+    if (btnCancelIpChange) btnCancelIpChange.disabled = false;
+  }
+}
+
+async function restorePendingIpChangeUi() {
+  const localPending = loadPendingIpLocal();
+  const bootstrapPending = loadPendingIpBootstrap();
+
+  if (bootstrapPending && !localPending) {
+    pendingIpIface = bootstrapPending.iface || 'eth0';
+    if (bootstrapPending.token && bootstrapPending.expiresAt > Date.now()) {
+      startIpConfirmFlow({
+        token: bootstrapPending.token,
+        iface: bootstrapPending.iface,
+        expiresInSec: Math.max(1, Math.ceil((bootstrapPending.expiresAt - Date.now()) / 1000))
+      });
+      if (applyIpResult) {
+        applyIpResult.textContent = 'Ausstehende IP-Änderung erkannt. Synchronisiere Status...';
+      }
+    } else {
+      showIpPendingUnknownState('Ausstehende IP-Änderung wird geprüft...');
+    }
+  }
+
+  if (localPending) {
+    startIpConfirmFlow({
+      token: localPending.token,
+      iface: localPending.iface,
+      expiresInSec: Math.max(1, Math.ceil((localPending.expiresAt - Date.now()) / 1000))
+    });
+    if (applyIpResult) {
+      applyIpResult.textContent = 'Ausstehende IP-Änderung erkannt. Synchronisiere Status...';
+    }
+  }
+
+  try {
+    const res = await fetch('/api/network/pending?iface=eth0', { cache: 'no-store', credentials: 'same-origin' });
+    if (!res.ok) {
+      if (!localPending) {
+        showIpPendingUnknownState('IP-Status wird nach Verbindungswechsel geprüft...');
+      }
+      startIpPendingRecoveryProbe();
+      return;
+    }
+    const data = await res.json().catch(() => null);
+    if (!data) {
+      if (!localPending) {
+        showIpPendingUnknownState('IP-Status wird geprüft...');
+      }
+      startIpPendingRecoveryProbe();
+      return;
+    }
+    if (!data || !data.pending) {
+      const hadBootstrap = !!bootstrapPending || !!localPending;
+      if (hadBootstrap) {
+        const knownExpiresAt = Number((localPending && localPending.expiresAt) || (bootstrapPending && bootstrapPending.expiresAt) || 0);
+        if (isPendingWindowExpired(knownExpiresAt, 3000)) {
+          clearPendingIpBootstrap();
+          hideIpConfirmUi();
+          if (btnApplyIp) btnApplyIp.disabled = false;
+          if (applyIpResult) applyIpResult.textContent = 'Bestätigungszeit abgelaufen. Rollback wurde ausgeführt.';
+          await populateNetworkFromSystem('eth0');
+          return;
+        }
+        showIpPendingUnknownState('Bestätigungsstatus wird weiterhin abgefragt...');
+        startIpPendingRecoveryProbe();
+        return;
+      }
+      hideIpConfirmUi();
+      if (btnApplyIp) btnApplyIp.disabled = false;
+      return;
+    }
+    startIpConfirmFlow({
+      token: data.token,
+      iface: data.iface || 'eth0',
+      expiresInSec: Number(data.expiresInSec || 60),
+      expiresAtMs: Number(data.expiresAtMs || 0),
+      serverNowMs: Number(data.serverNowMs || 0),
+      applying: !!data.applying
+    });
+    stopIpPendingRecoveryTimer();
+    if (applyIpResult) applyIpResult.textContent = 'Ausstehende IP-Änderung erkannt. Bitte bestätigen oder zurücksetzen.';
+  } catch (_) {
+    if (!localPending) {
+      showIpPendingUnknownState('IP-Status wird nach Verbindungswechsel geprüft...');
+    }
+    startIpPendingRecoveryProbe();
+  }
+}
+
+async function applyNtpSettings() {
+  const server = (ntpServer && ntpServer.value ? ntpServer.value : '').trim();
+  const applyNow = true;
+  const syncEnabled = !!(ntpSyncEnabled && ntpSyncEnabled.checked);
+
+  if (!server) {
+    alert('Bitte einen NTP-Server eintragen.');
+    return;
+  }
+  if (!isValidNtpServerInput(server)) {
+    alert('Ungültige NTP-Serveradresse. Bitte gültige IP oder Hostname eingeben.');
+    return;
+  }
+
+  ntpResult.textContent = 'Übernehme...';
+  if (btnApplyNtp) btnApplyNtp.disabled = true;
+
+  try {
+    const res = await fetch('/api/ntp', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ server, applyNow, syncEnabled })
+    });
+
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (_) { json = null; }
+
+    if (!res.ok || (json && json.ok === false)) {
+      const msg = (json && json.error) || text || `HTTP ${res.status}`;
+      ntpResult.textContent = 'Fehler: ' + msg;
+      return false;
+    }
+
+    ntpResult.textContent = (json && json.message)
+      ? String(json.message)
+      : (syncEnabled ? 'Übernommen, NTP Server verbunden.' : 'Server gespeichert (Sync aus)');
+    updateNtpSyncStatusText(syncEnabled);
+    return true;
+  } catch (err) {
+    ntpResult.textContent = 'Fehler: ' + (err.message || String(err));
+    return false;
+  } finally {
+    if (btnApplyNtp) btnApplyNtp.disabled = false;
+  }
+}
+
+async function applyManualTime() {
+  if (ntpSyncEnabled && ntpSyncEnabled.checked) {
+    alert('Manuelle Uhrzeit ist deaktiviert, solange NTP-Synchronisation aktiv ist.');
+    return;
+  }
+  const dt = manualDateTime && manualDateTime.value ? manualDateTime.value : '';
+  if (!dt) {
+    alert('Bitte manuelle Uhrzeit auswählen.');
+    return;
+  }
+
+  manualTimeResult.textContent = 'Übernehme...';
+  if (btnApplyManualTime) btnApplyManualTime.disabled = true;
+  try {
+    const res = await fetch('/api/time/manual', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dateTimeLocal: dt })
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (_) { json = null; }
+
+    if (!res.ok || (json && json.ok === false)) {
+      const msg = (json && json.error) || text || `HTTP ${res.status}`;
+      manualTimeResult.textContent = 'Fehler';
+      alert('Manuelle Uhrzeit konnte nicht gesetzt werden: ' + msg);
+      return;
+    }
+    manualTimeResult.textContent = 'Übernommen';
+  } catch (err) {
+    manualTimeResult.textContent = 'Fehler';
+    alert('Unerwarteter Fehler: ' + (err.message || String(err)));
+  } finally {
+    if (btnApplyManualTime) btnApplyManualTime.disabled = false;
+  }
+}
+
+async function applyTimezone() {
+  const selectedTz = (timezoneSelect && timezoneSelect.value ? timezoneSelect.value : '').trim();
+  let timezone = selectedTz;
+  if (!timezone) {
+    alert('Bitte eine Zeitzone auswählen.');
+    return;
+  }
+
+  if (dstEnabled && !dstEnabled.checked) {
+    const fixed = buildFixedOffsetTimezoneFromCurrentOffset(selectedTz);
+    if (!fixed) {
+      alert('Für diese Zeitzone kann ohne Sommer-/Winterzeit nur ein voller Stundenoffset gesetzt werden. Bitte eine passende Zeitzone wählen.');
+      return;
+    }
+    timezone = fixed;
+  }
+
+  timezoneResult.textContent = 'Übernehme...';
+  if (btnApplyTimezone) btnApplyTimezone.disabled = true;
+  try {
+    const res = await fetch('/api/time/timezone', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timezone })
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (_) { json = null; }
+
+    if (!res.ok || (json && json.ok === false)) {
+      const msg = (json && json.error) || text || `HTTP ${res.status}`;
+      timezoneResult.textContent = 'Fehler';
+      alert('Zeitzone konnte nicht gesetzt werden: ' + msg);
+      return;
+    }
+    timezoneResult.textContent = 'Übernommen';
+    await refreshTimeStatus();
+  } catch (err) {
+    timezoneResult.textContent = 'Fehler';
+    alert('Unerwarteter Fehler: ' + (err.message || String(err)));
+  } finally {
+    if (btnApplyTimezone) btnApplyTimezone.disabled = false;
+  }
+}
+
+async function restartLoggerService() {
+  if (!confirm('Logger-Service jetzt neu starten?')) return;
+  if (btnRestartLogger) btnRestartLogger.disabled = true;
+  if (systemActionResult) systemActionResult.textContent = 'Starte Service...';
+  try {
+    const res = await fetch('/api/system/restart-logger', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (_) { json = null; }
+    if (!res.ok || (json && json.ok === false)) {
+      const msg = (json && json.error) || text || `HTTP ${res.status}`;
+      if (systemActionResult) systemActionResult.textContent = 'Fehler: ' + msg;
+      return;
+    }
+    if (systemActionResult) systemActionResult.textContent = 'Logger-Service wurde neu gestartet.';
+  } catch (err) {
+    if (systemActionResult) systemActionResult.textContent = 'Fehler: ' + (err.message || String(err));
+  } finally {
+    if (btnRestartLogger) btnRestartLogger.disabled = false;
+  }
+}
+
+async function rebootSystem() {
+  if (!confirm('System jetzt neu starten? Verbindung wird getrennt.')) return;
+  if (btnRebootSystem) btnRebootSystem.disabled = true;
+  if (btnRestartLogger) btnRestartLogger.disabled = true;
+  if (systemActionResult) systemActionResult.textContent = 'System-Neustart wird ausgelöst...';
+  try {
+    const res = await fetch('/api/system/reboot', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (_) { json = null; }
+    if (!res.ok || (json && json.ok === false)) {
+      const msg = (json && json.error) || text || `HTTP ${res.status}`;
+      if (systemActionResult) systemActionResult.textContent = 'Fehler: ' + msg;
+      if (btnRebootSystem) btnRebootSystem.disabled = false;
+      if (btnRestartLogger) btnRestartLogger.disabled = false;
+      return;
+    }
+    if (systemActionResult) systemActionResult.textContent = 'System-Neustart ausgelöst.';
+  } catch (err) {
+    if (systemActionResult) systemActionResult.textContent = 'Fehler: ' + (err.message || String(err));
+    if (btnRebootSystem) btnRebootSystem.disabled = false;
+    if (btnRestartLogger) btnRestartLogger.disabled = false;
+  }
+}
+
+async function setNtpSyncEnabled(enabled) {
+  const desired = !!enabled;
+  const prev = ntpSyncEnabled ? !!ntpSyncEnabled.checked : true;
+  if (ntpSyncEnabled) ntpSyncEnabled.disabled = true;
+  try {
+    const res = await fetch('/api/time/ntp-sync', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: desired })
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (_) { json = null; }
+    if (!res.ok || (json && json.ok === false)) {
+      const msg = (json && json.error) || text || `HTTP ${res.status}`;
+      if (ntpSyncEnabled) ntpSyncEnabled.checked = prev;
+      alert('NTP-Synchronisation konnte nicht geändert werden: ' + msg);
+      return false;
+    }
+    if (ntpSyncEnabled) ntpSyncEnabled.checked = desired;
+    updateNtpSyncStatusText(desired);
+    return true;
+  } catch (err) {
+    if (ntpSyncEnabled) ntpSyncEnabled.checked = prev;
+    alert('Unerwarteter Fehler: ' + (err.message || String(err)));
+    return false;
+  } finally {
+    if (ntpSyncEnabled) ntpSyncEnabled.disabled = false;
+    syncTimeModeUi();
+  }
+}
+
+function updateNtpSyncStatusText(enabled) {
+  if (!ntpSyncStatusText) return;
+  ntpSyncStatusText.textContent = enabled ? 'Synchronisation aktiv' : 'Synchronisation inaktiv';
+}
+
+async function handleNtpToggleChange() {
+  if (!ntpSyncEnabled) return;
+  const desired = !!ntpSyncEnabled.checked;
+  const ok = await setNtpSyncEnabled(desired);
+  if (!ok) return;
+
+  // When NTP is turned on, apply current server immediately so UI state matches real sync state.
+  if (desired) {
+    const applied = await applyNtpSettings();
+    if (!applied) {
+      await setNtpSyncEnabled(false);
+      if (ntpSyncEnabled) ntpSyncEnabled.checked = false;
+      updateNtpSyncStatusText(false);
+      syncTimeModeUi();
+    }
+  } else {
+    updateNtpSyncStatusText(false);
+  }
+}
+
+async function refreshTimeStatus() {
+  try {
+    const res = await fetch('/api/time/status', { cache: 'no-store', credentials: 'same-origin' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (ntpSyncEnabled && data && typeof data.ntpSyncEnabled === 'boolean') {
+      ntpSyncEnabled.checked = !!data.ntpSyncEnabled;
+      updateNtpSyncStatusText(!!data.ntpSyncEnabled);
+      syncTimeModeUi();
+    }
+    if (ntpServer && data && typeof data.ntpServer === 'string' && data.ntpServer.trim()) {
+      ntpServer.value = data.ntpServer.trim();
+    }
+    if (timezoneSelect && data && data.timezone) {
+      ensureTimezoneOption(String(data.timezone));
+      timezoneSelect.value = String(data.timezone);
+    }
+    currentTimezone = (data && data.timezone) ? String(data.timezone) : currentTimezone;
+    const parsed = Date.parse((data && data.systemTimeIso) ? String(data.systemTimeIso) : '');
+    timeBaseMs = Number.isFinite(parsed) ? parsed : Date.now();
+    timeBasePerf = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
+    updateTimezoneUtcInfo();
+    renderCurrentSystemTime();
+    startTimeDisplayTicker();
+  } catch (_) {
+    if (timeMetaInfo) timeMetaInfo.textContent = 'Systemzeit konnte nicht geladen werden.';
+  }
+}
+
+function getOffsetMinutesForTimezone(timeZone, atDate = new Date()) {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'shortOffset'
+    });
+    const parts = fmt.formatToParts(atDate);
+    const tzPart = parts.find((p) => p.type === 'timeZoneName');
+    if (!tzPart || !tzPart.value) return 0;
+    const m = String(tzPart.value).match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+    if (!m) return 0;
+    const sign = m[1] === '+' ? 1 : -1;
+    const h = Number(m[2] || '0');
+    const min = Number(m[3] || '0');
+    return sign * (h * 60 + min);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function formatUtcOffset(mins) {
+  const sign = mins >= 0 ? '+' : '-';
+  const abs = Math.abs(mins);
+  const h = String(Math.floor(abs / 60)).padStart(2, '0');
+  const m = String(abs % 60).padStart(2, '0');
+  return `UTC${sign}${h}:${m}`;
+}
+
+function timezoneHasDst(timeZone) {
+  try {
+    const y = new Date().getFullYear();
+    const jan = new Date(Date.UTC(y, 0, 1, 12, 0, 0));
+    const jul = new Date(Date.UTC(y, 6, 1, 12, 0, 0));
+    return getOffsetMinutesForTimezone(timeZone, jan) !== getOffsetMinutesForTimezone(timeZone, jul);
+  } catch (_) {
+    return false;
+  }
+}
+
+function updateTimezoneUtcInfo() {
+  if (!timezoneSelect) return;
+  syncDstAvailabilityForTimezone();
+}
+
+function syncDstAvailabilityForTimezone() {
+  if (!timezoneSelect || !dstEnabled) return;
+  const tz = timezoneSelect.value || currentTimezone || 'Etc/UTC';
+  const hasDst = timezoneHasDst(tz);
+  if (!hasDst) {
+    dstEnabled.checked = true;
+    dstEnabled.disabled = true;
+    if (dstEnabledText) dstEnabledText.textContent = 'Für diese Zeitzone nicht relevant';
+    return;
+  }
+  dstEnabled.disabled = false;
+  if (dstEnabledText) dstEnabledText.textContent = 'Automatische Umstellung aktiv';
+}
+
+function ensureTimezoneOption(tz) {
+  if (!timezoneSelect || !tz) return;
+  const has = Array.from(timezoneSelect.options).some((o) => o.value === tz);
+  if (has) return;
+  const opt = document.createElement('option');
+  opt.value = tz;
+  const off = formatUtcOffset(getOffsetMinutesForTimezone(tz, new Date()));
+  opt.textContent = `${tz} (${off})`;
+  timezoneSelect.appendChild(opt);
+}
+
+function populateTimezoneSelect(selected) {
+  if (!timezoneSelect) return;
+  timezoneSelect.innerHTML = '';
+  for (const tz of AVAILABLE_TIMEZONES) {
+    const opt = document.createElement('option');
+    opt.value = tz;
+    const off = formatUtcOffset(getOffsetMinutesForTimezone(tz, new Date()));
+    opt.textContent = `${tz} (${off})`;
+    timezoneSelect.appendChild(opt);
+  }
+  if (selected) ensureTimezoneOption(selected);
+  timezoneSelect.value = selected && Array.from(timezoneSelect.options).some((o) => o.value === selected)
+    ? selected
+    : 'Europe/Berlin';
+  updateTimezoneUtcInfo();
+}
+
+async function loadAvailableTimezones() {
+  try {
+    const res = await fetch('/api/time/timezones', { cache: 'no-store', credentials: 'same-origin' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && Array.isArray(data.timezones) && data.timezones.length) {
+      AVAILABLE_TIMEZONES = data.timezones.map((x) => String(x)).filter(Boolean);
+    }
+  } catch (_) {
+    // Keep fallback list when backend lookup is not available.
+  }
+}
+
+function buildFixedOffsetTimezoneFromCurrentOffset(timeZone) {
+  const mins = getOffsetMinutesForTimezone(timeZone, new Date());
+  if (mins === 0) return 'Etc/UTC';
+  if (mins % 60 !== 0) return null;
+  const h = Math.abs(mins / 60);
+  const sign = mins > 0 ? '-' : '+';
+  return `Etc/GMT${sign}${h}`;
+}
+
+function formatTimeInTimezone(ms, timezone) {
+  try {
+    return new Intl.DateTimeFormat('de-DE', {
+      timeZone: timezone || 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).format(new Date(ms));
+  } catch (_) {
+    return new Date(ms).toLocaleString('de-DE');
+  }
+}
+
+function renderCurrentSystemTime() {
+  if (!timeMetaInfo) return;
+  const perfNow = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
+  const deltaMs = Math.max(0, perfNow - timeBasePerf);
+  const effectiveMs = timeBaseMs + deltaMs;
+  const timeTxt = formatTimeInTimezone(effectiveMs, currentTimezone);
+  const tzTxt = currentTimezone || '-';
+  timeMetaInfo.textContent = `Aktuelle Systemzeit: ${timeTxt} | Zeitzone: ${tzTxt}`;
+}
+
+function startTimeDisplayTicker() {
+  if (timeDisplayTimer) clearInterval(timeDisplayTimer);
+  timeDisplayTimer = setInterval(() => {
+    renderCurrentSystemTime();
+  }, 1000);
+}
+
+function syncTimeModeUi() {
+  const ntpOn = !!(ntpSyncEnabled && ntpSyncEnabled.checked);
+  if (manualDateTime) manualDateTime.disabled = ntpOn;
+  if (btnApplyManualTime) btnApplyManualTime.disabled = ntpOn;
+  if (ntpServer) ntpServer.disabled = false;
+  if (btnApplyNtp) btnApplyNtp.disabled = false;
 }
 
 function wireThemeInputs() {
@@ -474,6 +1740,16 @@ function wireThemeInputs() {
 }
 
 btnApplyIp && btnApplyIp.addEventListener('click', async () => { if (!confirm('IP übernehmen?')) return; await applyLoggerIpConfirmed(); });
+btnApplyManualTime && btnApplyManualTime.addEventListener('click', async () => { if (!confirm('Manuelle Uhrzeit jetzt setzen?')) return; await applyManualTime(); });
+btnApplyNtp && btnApplyNtp.addEventListener('click', async () => { if (!confirm('NTP-Einstellungen übernehmen?')) return; await applyNtpSettings(); });
+btnApplyTimezone && btnApplyTimezone.addEventListener('click', async () => { if (!confirm('Zeitzone übernehmen?')) return; await applyTimezone(); });
+btnConfirmIpChange && btnConfirmIpChange.addEventListener('click', confirmIpChange);
+btnCancelIpChange && btnCancelIpChange.addEventListener('click', cancelIpChange);
+btnRestartLogger && btnRestartLogger.addEventListener('click', restartLoggerService);
+btnRebootSystem && btnRebootSystem.addEventListener('click', rebootSystem);
+ntpSyncEnabled && ntpSyncEnabled.addEventListener('change', handleNtpToggleChange);
+timezoneSelect && timezoneSelect.addEventListener('change', updateTimezoneUtcInfo);
+dstEnabled && dstEnabled.addEventListener('change', updateTimezoneUtcInfo);
 btnSave && btnSave.addEventListener('click', saveSettings);
 btnReset && btnReset.addEventListener('click', () => {
   if (!confirm('Auf Standard‑Werte zurücksetzen?')) return;
@@ -483,6 +1759,10 @@ btnReset && btnReset.addEventListener('click', () => {
   loggerGateway.value = DEFAULTS.logger.gateway;
   pruneAnchorMinutes.value = String(DEFAULTS.logger.pruneAnchorMinutes);
   unchangedHeartbeatMinutes.value = String(DEFAULTS.logger.unchangedHeartbeatMinutes);
+  if (processDataDeleteInterval) processDataDeleteInterval.value = DEFAULTS.logger.processDataDeleteInterval;
+  if (processDataCapacityPercent) processDataCapacityPercent.value = String(DEFAULTS.logger.processDataCapacityPercent);
+  if (processDataDeleteThresholdPercent) processDataDeleteThresholdPercent.value = String(DEFAULTS.logger.processDataDeleteThresholdPercent);
+  loggerSettingsState = Object.assign({}, DEFAULTS.logger);
   alert('Auf Standard zurückgesetzt (noch nicht gespeichert).');
 });
 
@@ -494,6 +1774,7 @@ async function loadSettingsFromServer() {
       if (j) {
         if (j.theme) loadThemeToForm(j.theme); else loadThemeToForm(DEFAULTS.theme);
         if (j.logger) {
+          loggerSettingsState = Object.assign({}, j.logger);
           if (j.logger.ip) loggerIp.value = j.logger.ip;
           if (j.logger.subnet) loggerSubnet.value = j.logger.subnet.startsWith('/') ? prefixToDotted(j.logger.subnet) : j.logger.subnet;
           if (j.logger.gateway) loggerGateway.value = j.logger.gateway;
@@ -503,7 +1784,17 @@ async function loadSettingsFromServer() {
           if (j.logger.unchangedHeartbeatMinutes !== undefined && j.logger.unchangedHeartbeatMinutes !== null) {
             unchangedHeartbeatMinutes.value = String(j.logger.unchangedHeartbeatMinutes);
           }
+          if (processDataDeleteInterval) {
+            processDataDeleteInterval.value = normalizeDeleteInterval(j.logger.processDataDeleteInterval);
+          }
+          if (processDataCapacityPercent) {
+            processDataCapacityPercent.value = String(normalizeInteger(j.logger.processDataCapacityPercent, 20, 80, DEFAULTS.logger.processDataCapacityPercent));
+          }
+          if (processDataDeleteThresholdPercent) {
+            processDataDeleteThresholdPercent.value = String(normalizeInteger(j.logger.processDataDeleteThresholdPercent, 20, 90, DEFAULTS.logger.processDataDeleteThresholdPercent));
+          }
         }
+        if (!j.logger) loggerSettingsState = Object.assign({}, DEFAULTS.logger);
       } else { loadThemeToForm(DEFAULTS.theme); }
     } else { loadThemeToForm(DEFAULTS.theme); }
   } catch (e) {
@@ -517,10 +1808,32 @@ async function loadSettingsFromServer() {
 document.addEventListener('DOMContentLoaded', () => {
   wireThemeInputs();
   loadThemeToForm(DEFAULTS.theme);
+  loggerSettingsState = Object.assign({}, DEFAULTS.logger);
+  if (manualDateTime && !manualDateTime.value) {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    manualDateTime.value = now.toISOString().slice(0, 16);
+  }
+  loadAvailableTimezones()
+    .then(() => {
+      populateTimezoneSelect(currentTimezone);
+      syncTimeModeUi();
+      return refreshTimeStatus();
+    })
+    .catch(() => {})
+    .finally(() => {
+      setInterval(() => { refreshTimeStatus().catch(() => {}); }, 30000);
+    });
   pruneAnchorMinutes.value = String(DEFAULTS.logger.pruneAnchorMinutes);
   unchangedHeartbeatMinutes.value = String(DEFAULTS.logger.unchangedHeartbeatMinutes);
+  if (processDataDeleteInterval) processDataDeleteInterval.value = DEFAULTS.logger.processDataDeleteInterval;
+  if (processDataCapacityPercent) processDataCapacityPercent.value = String(DEFAULTS.logger.processDataCapacityPercent);
+  if (processDataDeleteThresholdPercent) processDataDeleteThresholdPercent.value = String(DEFAULTS.logger.processDataDeleteThresholdPercent);
+  restorePendingIpChangeUi().catch(() => {});
   loadSettingsFromServer().catch(e => { console.warn('init error', e); });
 });
+
+btnSaveDataStorage && btnSaveDataStorage.addEventListener('click', saveDataStorageSettings);
 </script>
 </body>
 </html>
