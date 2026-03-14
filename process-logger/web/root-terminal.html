@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Root Terminal</title>
+  <link rel="stylesheet" href="/_shell.css">
+  <script src="/_nav-loader.js" defer></script>
+  <script src="/_theme-loader.js" defer></script>
+  <style>
+    body { font-family: var(--shell-font); }
+    .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+    .url-input {
+      flex: 1;
+      min-width: 280px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .terminal-frame {
+      width: 100%;
+      height: 72vh;
+      min-height: 520px;
+      border: 1px solid #d9d9d9;
+      border-radius: 8px;
+      background: #fff;
+      margin-top: .8rem;
+    }
+    .hint {
+      margin-top: .6rem;
+      color: var(--text-muted);
+      font-size: .92rem;
+    }
+    .status {
+      color: var(--text-muted);
+      font-size: .9rem;
+      margin-left: .4rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav id="nav-placeholder" class="side-nav" aria-label="Seitennavigation"></nav>
+
+    <main class="main-area" id="page-root">
+      <div class="panel">
+        <h1>Root Terminal</h1>
+        <p class="muted">Vollwertige Root-Konsole über externen Terminal-Dienst (z. B. ttyd/Wetty).</p>
+
+        <div class="row">
+          <input id="terminalUrl" class="url-input" type="text" placeholder="Terminal-URL, z. B. http://192.168.0.151:7681">
+          <button id="btnConnect" class="btn btn--primary">Verbinden</button>
+          <button id="btnSave" class="btn">URL speichern</button>
+          <button id="btnOpenTab" class="btn">In neuem Tab öffnen</button>
+          <span id="status" class="status"></span>
+        </div>
+
+        <div class="hint">
+          Wenn das Einbetten blockiert ist (X-Frame-Options/CSP), nutze In neuem Tab öffnen.
+        </div>
+
+        <iframe id="terminalFrame" class="terminal-frame" title="Root Terminal"></iframe>
+      </div>
+    </main>
+  </div>
+
+<script>
+(function () {
+  const STORAGE_KEY = 'processLogger.rootTerminalUrl';
+  const urlInput = document.getElementById('terminalUrl');
+  const btnConnect = document.getElementById('btnConnect');
+  const btnSave = document.getElementById('btnSave');
+  const btnOpenTab = document.getElementById('btnOpenTab');
+  const frame = document.getElementById('terminalFrame');
+  const statusEl = document.getElementById('status');
+
+  function defaultTerminalUrl() {
+    return 'https://' + window.location.hostname + ':4200?style=Black%20on%20White';
+  }
+
+  function normalizeUrl(raw) {
+    const v = String(raw || '').trim();
+    if (!v) return '';
+    const withProto = /^https?:\/\//i.test(v) ? v : (window.location.protocol + '//' + v);
+    return ensureReadableShellinaboxUrl(withProto);
+  }
+
+  function ensureReadableShellinaboxUrl(url) {
+    try {
+      const u = new URL(url);
+      // For shellinabox default port enforce a readable style unless user already set one.
+      if (u.port === '4200') {
+        // shellinabox is typically served over HTTPS on 4200.
+        u.protocol = 'https:';
+        if (!u.searchParams.has('style')) {
+          u.searchParams.set('style', 'Black on White');
+        }
+      }
+      return u.toString();
+    } catch (_) {
+      return url;
+    }
+  }
+
+  function setStatus(text) {
+    if (statusEl) statusEl.textContent = text || '';
+  }
+
+  function getUrl() {
+    return normalizeUrl(urlInput && urlInput.value ? urlInput.value : '');
+  }
+
+  function connect() {
+    const url = getUrl();
+    if (!url) {
+      setStatus('Bitte eine Terminal-URL eingeben.');
+      return;
+    }
+    frame.src = url;
+    setStatus('Verbunden: ' + url);
+  }
+
+  function saveUrl() {
+    const url = getUrl();
+    if (!url) {
+      setStatus('Bitte eine gueltige URL eingeben.');
+      return;
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, url);
+      setStatus('Gespeichert.');
+    } catch (_) {
+      setStatus('Speichern nicht moeglich.');
+    }
+  }
+
+  function openInTab() {
+    const url = getUrl();
+    if (!url) {
+      setStatus('Bitte eine gueltige URL eingeben.');
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function init() {
+    let saved = '';
+    try {
+      saved = String(localStorage.getItem(STORAGE_KEY) || '');
+    } catch (_) {
+      saved = '';
+    }
+    const initial = saved || defaultTerminalUrl();
+    urlInput.value = initial;
+    connect();
+  }
+
+  btnConnect.addEventListener('click', connect);
+  btnSave.addEventListener('click', saveUrl);
+  btnOpenTab.addEventListener('click', openInTab);
+  urlInput.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      connect();
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
