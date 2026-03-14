@@ -1,0 +1,23 @@
+{
+  "theme": {
+    "--accent": "#141415",
+    "--accent-contrast": "#ffffff",
+    "--muted": "#666666",
+    "--bg": "#ffffff",
+    "--card-bg": "#ffffff",
+    "--table-header-bg": "#2b6fb3",
+    "--table-header-contrast": "#ffffff",
+    "--radius": "6px",
+    "--shell-font": "\"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif"
+  },
+  "logger": {
+    "ip": "192.168.0.150",
+    "subnet": "/24",
+    "gateway": "192.168.0.1",
+    "pruneAnchorMinutes": 10,
+    "unchangedHeartbeatMinutes": 5,
+    "processDataDeleteInterval": "daily",
+    "processDataCapacityPercent": 40,
+    "processDataDeleteThresholdPercent": 90
+  }
+}
