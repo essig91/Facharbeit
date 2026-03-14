@@ -4,6 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Datenarchiv</title>
+  <script>
+    (function () {
+      try {
+        const params = new URLSearchParams(location.search);
+        if (params.get('embedTrend') === '1') {
+          document.documentElement.classList.add('embed-trend-mode');
+        }
+      } catch (_) {}
+    })();
+  </script>
   <link rel="stylesheet" href="/_shell.css">
   <script src="/_nav-loader.js" defer></script>
   <script src="/_theme-loader.js" defer></script>
@@ -13,13 +23,37 @@
     .mode-btn { min-width: 2.5rem; }
     .mode-btn.active { background: var(--accent); color: var(--accent-contrast); }
     .panel-grid { display:grid; gap:.8rem; grid-template-columns: 1fr; }
+    .panel-grid { --list-h: 12rem; }
     .panel-grid.mode-2 { grid-template-columns: 1fr 1fr; }
     .panel-grid.mode-3 { grid-template-columns: 1fr 1fr; }
     .panel-grid.mode-4 { grid-template-columns: 1fr 1fr; }
+    .panel-grid.mode-2,
+    .panel-grid.mode-3,
+    .panel-grid.mode-4 { --list-h: 11rem; }
+    .panel-grid.mode-2 .archive-panel,
+    .panel-grid.mode-3 .archive-panel,
+    .panel-grid.mode-4 .archive-panel { padding:.6rem; }
+    .panel-grid.mode-2 .control-grid,
+    .panel-grid.mode-3 .control-grid,
+    .panel-grid.mode-4 .control-grid { gap:.45rem; }
+    .panel-grid.mode-2 .table-wrap,
+    .panel-grid.mode-3 .table-wrap { max-height:300px; }
+    .panel-grid.mode-4 .table-wrap { max-height:240px; }
+    .panel-grid.mode-2 .trend-svg,
+    .panel-grid.mode-3 .trend-svg { height:220px; }
+    .panel-grid.mode-4 .trend-svg { height:200px; }
     .archive-panel { padding: .8rem; }
-    .archive-head { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:.5rem; margin-bottom:.5rem; }
-    .head-title-wrap { display:flex; align-items:center; gap:.45rem; min-width:0; }
-    .panel-title { margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .archive-head { display:grid; grid-template-columns:1fr auto; align-items:center; gap:.5rem; margin-bottom:.5rem; }
+    .head-title-wrap { display:flex; align-items:flex-start; gap:.45rem; min-width:0; }
+    .panel-title {
+      margin:0;
+      min-height:2.05rem;
+      display:inline-flex;
+      align-items:center;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
     .panel-notice {
       display:none;
       font-size:.8rem;
@@ -32,7 +66,48 @@
     }
     .panel-notice.visible { display:inline-block; }
     .head-actions { display:flex; gap:.4rem; align-items:center; justify-content:flex-end; }
-    .live-controls { display:flex; gap:.5rem; align-items:center; justify-content:center; justify-self:center; }
+    .panel-config-actions {
+      display:flex;
+      align-items:center;
+      gap:.35rem;
+      min-width:0;
+      align-self:flex-start;
+    }
+    .panel-config-row {
+      display:flex;
+      align-items:center;
+      gap:.35rem;
+      justify-content:flex-end;
+      width:100%;
+    }
+    .panel-config-select { min-width:7.5rem; max-width:9rem; height:2.05rem; margin:0; }
+    .panel-icon-btn {
+      width:2.05rem;
+      min-width:2.05rem;
+      height:2.05rem;
+      padding:0;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .panel-icon-btn svg {
+      width:1.05rem;
+      height:1.05rem;
+      stroke:currentColor;
+      fill:none;
+      stroke-width:2.1;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    .panel-icon-btn.delete {
+      background:#b42318;
+      color:#fff;
+      border-color:#8f1c13;
+    }
+    .live-controls { display:flex; gap:.35rem; align-items:center; }
+    .live-controls .live-interval-input { width:4.2rem; }
+    .conn-live-row { justify-content:space-between; }
+    .quick-btns .live-controls { margin-left:.35rem; }
     .trend-wrap .icon-btn {
       width:2.15rem !important;
       min-width:2.15rem !important;
@@ -85,16 +160,32 @@
       pointer-events:none;
       z-index:8;
     }
-    .control-grid { display:grid; grid-template-columns: 1fr 1fr; gap:.6rem; }
-    .control-grid > label { display:flex; flex-direction:column; gap:.25rem; font-size:.9rem; }
+    .control-grid { display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:.6rem; }
+    .archive-panel.config-collapsed .control-grid,
+    .archive-panel.config-collapsed .panel-status { display:none; }
+    .config-collapse-row { margin:.2rem 0 .35rem 0; display:flex; align-items:center; gap:.25rem; }
+    .config-collapse-btn { width:1.8rem; min-width:1.8rem; height:1.8rem; padding:.2rem; display:inline-flex; align-items:center; justify-content:center; }
+    .config-collapse-btn svg { width:1rem; height:1rem; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+    .control-grid > label { display:flex; flex-direction:column; gap:.25rem; font-size:.9rem; min-width:0; }
+    .conn-control,
+    .lp-control {
+      width: 100%;
+      min-width: 0;
+    }
     .checklist {
-      min-height: 8rem;
-      max-height: 15rem;
+      height: var(--list-h);
       overflow: auto;
       border: 1px solid #ddd;
       border-radius: 6px;
       padding: .35rem;
       background: #fff;
+    }
+    .conn-checklist,
+    .lp-checklist {
+      height: var(--list-h) !important;
+      min-height: var(--list-h);
+      max-height: var(--list-h);
+      box-sizing: border-box;
     }
     .check-item {
       display: flex;
@@ -118,6 +209,11 @@
     }
     .archive-panel.trend-enabled .check-item .lp-color { display:inline-block; }
     .pick-tools { display:flex; gap:.35rem; margin-bottom:.35rem; flex-wrap:wrap; }
+    .list-pick-tools {
+      min-height: 2.25rem;
+      align-items: flex-start;
+      flex-wrap: nowrap;
+    }
     .time-row { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
     .quick-btns { display:flex; gap:.35rem; flex-wrap:wrap; }
     .date-range { display:flex; gap:.4rem; align-items:center; flex-wrap:nowrap; }
@@ -176,35 +272,62 @@
       .archive-head { grid-template-columns: 1fr; }
       .head-title-wrap { flex-wrap:wrap; }
       .head-actions { justify-content:flex-start; }
-      .live-controls { justify-self:stretch; justify-content:flex-start; }
+      .conn-live-row { flex-direction:column; align-items:flex-start; }
     }
-    body.embed-trend-mode #nav-placeholder,
-    body.embed-trend-mode .side-nav,
-    body.embed-trend-mode .toolbar,
-    body.embed-trend-mode h1,
-    body.embed-trend-mode .page-wrapper > .muted-small {
+    html.embed-trend-mode #nav-placeholder,
+    html.embed-trend-mode .side-nav,
+    html.embed-trend-mode .toolbar,
+    html.embed-trend-mode h1,
+    html.embed-trend-mode .page-wrapper > .muted-small {
       display:none !important;
     }
-    body.embed-trend-mode .app-shell {
+    html.embed-trend-mode .app-shell {
       display:block !important;
     }
-    body.embed-trend-mode .main-area {
+    html.embed-trend-mode .main-area {
       margin:0 !important;
       padding:0 !important;
       max-width:none !important;
       width:100% !important;
     }
-    body.embed-trend-mode .page-wrapper { max-width: 1100px; margin: .6rem auto; }
-    body.embed-trend-mode .embed-config-controls { display:inline-flex !important; }
-    body.embed-trend-mode .conn-control,
-    body.embed-trend-mode .lp-control,
-    body.embed-trend-mode .table-collapse-row,
-    body.embed-trend-mode .table-wrap,
-    body.embed-trend-mode .trend-toggle-row,
-    body.embed-trend-mode [data-action="export"],
-    body.embed-trend-mode .panel-config-actions,
-    body.embed-trend-mode .export-format-select {
+    html.embed-trend-mode .page-wrapper { max-width: 1100px; margin: .6rem auto; }
+    html.embed-trend-mode .embed-config-controls { display:inline-flex !important; }
+    html.embed-trend-mode .conn-control,
+    html.embed-trend-mode .lp-control,
+    html.embed-trend-mode .table-collapse-row,
+    html.embed-trend-mode .table-wrap,
+    html.embed-trend-mode .trend-toggle-row,
+    html.embed-trend-mode .panel-config-actions,
+    html.embed-trend-mode .export-format-select {
       display:none !important;
+    }
+    body.observe-mode .panel-config-actions button,
+    body.observe-mode .config-collapse-row,
+    body.observe-mode .control-grid > :not(.limit-control):not(.time-control) {
+      display:none !important;
+    }
+    body.observe-mode .panel-config-actions .panel-config-select {
+      display:inline-block !important;
+    }
+    body.observe-mode .limit-control {
+      display:flex !important;
+      flex-direction:column;
+      align-items:flex-start;
+    }
+    body.observe-mode .limit-control input {
+      display:none !important;
+    }
+    body.observe-role-mode .limit-control input {
+      display:block !important;
+    }
+    body.observe-role-mode .time-control {
+      display:none !important;
+    }
+    body.trend-role-mode .limit-control .limit-label {
+      display:none !important;
+    }
+    body.observe-mode .limit-control .load-panel-btn {
+      margin-top:0 !important;
     }
   </style>
 </head>
@@ -250,6 +373,25 @@ const panelState = new WeakMap();
 const panelNoticeTimers = new WeakMap();
 const panelConfigs = new Map();
 const DEFAULT_COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd', '#17becf', '#8c564b'];
+const DEFAULT_MAX_DISPLAY_POINTS = 20000;
+const MAX_TREND_RENDER_POINTS = 4000;
+const MAX_ARCHIVE_QUERY_POINTS = 500000;
+const COMPRESSION_WARNING_TEXT = 'Achtung: Datenverdichtung aktiv. Genauigkeit der Daten könnte beeinflusst sein.';
+let currentRoleLevel = 0;
+
+async function initRoleUi() {
+  try {
+    const res = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+    const json = await res.json().catch(() => null);
+    const user = json && json.user ? json.user : null;
+    currentRoleLevel = Number(user && user.roleLevel) || 0;
+  } catch (_) {
+    currentRoleLevel = 0;
+  }
+  document.body.classList.toggle('observe-mode', currentRoleLevel >= 1 && currentRoleLevel < 3);
+  document.body.classList.toggle('observe-role-mode', currentRoleLevel === 2);
+  document.body.classList.toggle('trend-role-mode', currentRoleLevel === 1);
+}
 
 function getUnitForLogpointId(lpId) {
   const u = unitByLogpointId.get(String(lpId));
@@ -296,6 +438,218 @@ function normalizeTrendValue(raw) {
   return { ok: true, value: n, isBoolean: false, display: String(n) };
 }
 
+function clampDisplayLimit(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return DEFAULT_MAX_DISPLAY_POINTS;
+  return Math.max(1, Math.min(100000, Math.floor(n)));
+}
+
+function uniqueRowsByIdentity(rowsAsc) {
+  const seen = new Set();
+  const out = [];
+  for (const row of rowsAsc) {
+    const key = `${row.logpointId}|${row.ts}|${row.value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+function sampleSeriesRowsPreservingCorners(rowsAsc, target) {
+  if (!Array.isArray(rowsAsc) || rowsAsc.length <= target) return Array.isArray(rowsAsc) ? rowsAsc.slice() : [];
+  const n = rowsAsc.length;
+  if (target <= 2) return [rowsAsc[0], rowsAsc[n - 1]];
+
+  const middle = rowsAsc.slice(1, n - 1);
+  const pairBuckets = Math.max(1, Math.floor((target - 2) / 2));
+  const bucketSize = middle.length / pairBuckets;
+  const picked = [rowsAsc[0]];
+
+  for (let i = 0; i < pairBuckets; i++) {
+    const start = Math.floor(i * bucketSize);
+    const rawEnd = Math.floor((i + 1) * bucketSize);
+    const end = Math.max(start + 1, Math.min(middle.length, rawEnd));
+    const bucket = middle.slice(start, end);
+    if (!bucket.length) continue;
+
+    const normVals = bucket.map((r) => normalizeTrendValue(r.value));
+    const numeric = [];
+    for (let b = 0; b < bucket.length; b++) {
+      if (normVals[b].ok && Number.isFinite(normVals[b].value)) {
+        numeric.push({ idx: b, value: Number(normVals[b].value) });
+      }
+    }
+
+    if (numeric.length >= 2) {
+      let minIdx = numeric[0].idx;
+      let maxIdx = numeric[0].idx;
+      let minVal = numeric[0].value;
+      let maxVal = numeric[0].value;
+      for (const cand of numeric) {
+        if (cand.value < minVal) {
+          minVal = cand.value;
+          minIdx = cand.idx;
+        }
+        if (cand.value > maxVal) {
+          maxVal = cand.value;
+          maxIdx = cand.idx;
+        }
+      }
+      if (minIdx === maxIdx) {
+        picked.push(bucket[minIdx]);
+      } else {
+        const firstIdx = Math.min(minIdx, maxIdx);
+        const secondIdx = Math.max(minIdx, maxIdx);
+        picked.push(bucket[firstIdx], bucket[secondIdx]);
+      }
+    } else {
+      picked.push(bucket[0]);
+      if (bucket.length > 1) picked.push(bucket[bucket.length - 1]);
+    }
+  }
+
+  picked.push(rowsAsc[n - 1]);
+  let out = uniqueRowsByIdentity(picked.sort((a, b) => Number(a.ts) - Number(b.ts)));
+
+  if (out.length > target) {
+    const keep = [out[0]];
+    const inner = out.slice(1, out.length - 1);
+    const wantedInner = Math.max(0, target - 2);
+    if (wantedInner > 0 && inner.length > 0) {
+      const step = inner.length / wantedInner;
+      for (let i = 0; i < wantedInner; i++) {
+        const idx = Math.min(inner.length - 1, Math.floor(i * step));
+        keep.push(inner[idx]);
+      }
+    }
+    keep.push(out[out.length - 1]);
+    out = uniqueRowsByIdentity(keep.sort((a, b) => Number(a.ts) - Number(b.ts)));
+  }
+
+  return out;
+}
+
+function compressRowsForDisplay(rows, limit) {
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  const maxPoints = clampDisplayLimit(limit);
+  if (sourceRows.length <= maxPoints) {
+    return {
+      rows: sourceRows.slice(),
+      compressed: false,
+      sourceCount: sourceRows.length,
+      displayedCount: sourceRows.length
+    };
+  }
+
+  const grouped = new Map();
+  for (const row of sourceRows) {
+    const lpId = String(row.logpointId);
+    if (!grouped.has(lpId)) grouped.set(lpId, []);
+    grouped.get(lpId).push(row);
+  }
+
+  const stats = Array.from(grouped.entries()).map(([lpId, series]) => {
+    const sortedAsc = series.slice().sort((a, b) => Number(a.ts) - Number(b.ts));
+    return { lpId, sortedAsc, count: sortedAsc.length, quota: 0 };
+  });
+  const total = stats.reduce((sum, s) => sum + s.count, 0);
+
+  for (const s of stats) {
+    const proportional = Math.floor((maxPoints * s.count) / Math.max(1, total));
+    s.quota = Math.max(2, Math.min(s.count, proportional || 2));
+  }
+
+  let allocated = stats.reduce((sum, s) => sum + s.quota, 0);
+  if (allocated < maxPoints) {
+    const sortedByRemaining = stats.slice().sort((a, b) => (b.count - b.quota) - (a.count - a.quota));
+    let guard = 0;
+    while (allocated < maxPoints && guard < 500000) {
+      guard++;
+      let changed = false;
+      for (const s of sortedByRemaining) {
+        if (allocated >= maxPoints) break;
+        if (s.quota >= s.count) continue;
+        s.quota += 1;
+        allocated += 1;
+        changed = true;
+      }
+      if (!changed) break;
+    }
+  } else if (allocated > maxPoints) {
+    const sortedByReducible = stats.slice().sort((a, b) => (b.quota - 2) - (a.quota - 2));
+    let guard = 0;
+    while (allocated > maxPoints && guard < 500000) {
+      guard++;
+      let changed = false;
+      for (const s of sortedByReducible) {
+        if (allocated <= maxPoints) break;
+        if (s.quota <= 2) continue;
+        s.quota -= 1;
+        allocated -= 1;
+        changed = true;
+      }
+      if (!changed) break;
+    }
+  }
+
+  const sampled = [];
+  for (const s of stats) {
+    const reduced = sampleSeriesRowsPreservingCorners(s.sortedAsc, s.quota);
+    for (const row of reduced) {
+      sampled.push(row);
+    }
+  }
+
+  const dedupedDesc = uniqueRowsByIdentity(sampled.sort((a, b) => Number(b.ts) - Number(a.ts)));
+  const capped = dedupedDesc.length > maxPoints ? dedupedDesc.slice(0, maxPoints) : dedupedDesc;
+  return {
+    rows: capped,
+    compressed: true,
+    sourceCount: sourceRows.length,
+    displayedCount: capped.length
+  };
+}
+
+function getTrendRows(st) {
+  if (!st) return [];
+  if (Array.isArray(st.lastDisplayRows) && st.lastDisplayRows.length) return st.lastDisplayRows;
+  return Array.isArray(st.lastRows) ? st.lastRows : [];
+}
+
+function getTrendRenderRows(st) {
+  const rows = getTrendRows(st);
+  if (!rows.length || rows.length <= MAX_TREND_RENDER_POINTS) return rows;
+  return compressRowsForDisplay(rows, MAX_TREND_RENDER_POINTS).rows;
+}
+
+function getCompressionStatusSuffix(st) {
+  return (st && st.displayCompression && st.displayCompression.compressed) ? ` | ${COMPRESSION_WARNING_TEXT}` : '';
+}
+
+function getFiniteMinMax(values, mapFn) {
+  let min = Infinity;
+  let max = -Infinity;
+  const items = Array.isArray(values) ? values : [];
+  for (let index = 0; index < items.length; index++) {
+    const raw = mapFn ? mapFn(items[index], index) : items[index];
+    const num = Number(raw);
+    if (!Number.isFinite(num)) continue;
+    if (num < min) min = num;
+    if (num > max) max = num;
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return { min: null, max: null };
+  }
+  return { min, max };
+}
+
+function buildLoadedStatusText(loadedCount, totalAvailable, st) {
+  const loaded = Math.max(0, Number(loadedCount) || 0);
+  const total = Math.max(0, Number(totalAvailable) || 0);
+  return `${loaded} von ${total} vorhandenen Datensaetzen geladen${getCompressionStatusSuffix(st)}`;
+}
+
 function makeDefaultPanelConfig() {
   return {
     selectedConnIds: [],
@@ -303,7 +657,7 @@ function makeDefaultPanelConfig() {
     fromTs: Date.now() - 3600_000,
     toTs: Date.now(),
     relativeRangeMs: 3600_000,
-    limit: 100000,
+    limit: DEFAULT_MAX_DISPLAY_POINTS,
     trendEnabled: false,
     colorByLogpoint: {},
     lastRows: [],
@@ -312,8 +666,11 @@ function makeDefaultPanelConfig() {
     liveMs: 5000,
     trendViewport: null,
     tableCollapsed: false,
+    configCollapsed: false,
     exportFormat: 'svg',
-    activeConfigName: ''
+    activeConfigName: '',
+    lastDisplayRows: [],
+    displayCompression: null
   };
 }
 
@@ -489,10 +846,8 @@ function updatePanelTitle(panelEl) {
 }
 
 function markPanelAsCustom(panelEl) {
-  const st = panelState.get(panelEl);
-  if (!st || !st.activeConfigName) return;
-  st.activeConfigName = '';
-  updatePanelTitle(panelEl);
+  // Keep loaded configuration name as panel title even when inputs diverge.
+  return;
 }
 
 function showPanelNotice(panelEl, message) {
@@ -649,6 +1004,12 @@ function savePanelConfig(panelEl) {
 
   all[name] = snapshot;
   setStoredArchiveConfigs(all);
+  const st = panelState.get(panelEl);
+  if (st) {
+    st.activeConfigName = name;
+    updatePanelTitle(panelEl);
+  }
+  refreshAllPanelConfigSelects();
   alert(`Konfiguration "${name}" wurde gespeichert.`);
 }
 
@@ -668,6 +1029,85 @@ async function loadPanelConfig(panelEl) {
     await loadPanelData(refreshed, { incremental: false });
     showPanelNotice(refreshed, 'Konfiguration geladen');
   }
+}
+
+function fillPanelConfigSelect(panelEl) {
+  if (!panelEl) return;
+  const sel = panelEl.querySelector('.panel-config-select');
+  if (!sel) return;
+
+  const names = getStoredPanelConfigNames();
+  const st = panelState.get(panelEl);
+  const activeName = st && st.activeConfigName ? String(st.activeConfigName) : '';
+  sel.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = names.length ? 'Konfiguration laden...' : 'Keine gespeicherten Konfigurationen';
+  placeholder.selected = !activeName;
+  sel.appendChild(placeholder);
+
+  for (const name of names) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (activeName && name === activeName) opt.selected = true;
+    sel.appendChild(opt);
+  }
+
+  sel.disabled = names.length === 0;
+}
+
+function refreshAllPanelConfigSelects() {
+  const panels = Array.from(panelGrid.querySelectorAll('.archive-panel'));
+  for (const panel of panels) fillPanelConfigSelect(panel);
+}
+
+async function applyPanelConfigByName(panelEl, configName) {
+  const all = getStoredPanelConfigs();
+  const name = String(configName || '');
+  const snapshot = all[name];
+  if (!snapshot) {
+    alert('Gewählte Konfiguration wurde nicht gefunden.');
+    fillPanelConfigSelect(panelEl);
+    return;
+  }
+  const panelIndex = getPanelIndex(panelEl);
+  applyPanelSnapshotToIndex(panelIndex, snapshot, { configName: name, rebaseTimeToNow: true });
+  const refreshed = panelGrid.querySelector(`.archive-panel[data-panel-index="${panelIndex}"]`);
+  if (refreshed) {
+    await loadPanelData(refreshed, { incremental: false });
+    showPanelNotice(refreshed, 'Konfiguration geladen');
+  }
+}
+
+function deletePanelConfig(panelEl) {
+  const st = panelState.get(panelEl);
+  const sel = panelEl.querySelector('.panel-config-select');
+  const name = String((sel && sel.value) || (st && st.activeConfigName) || '').trim();
+  if (!name) {
+    alert('Bitte zuerst eine Konfiguration auswählen.');
+    return;
+  }
+
+  const all = getStoredPanelConfigs();
+  if (!all[name]) {
+    alert('Gewählte Konfiguration wurde nicht gefunden.');
+    refreshAllPanelConfigSelects();
+    return;
+  }
+  if (!confirm(`Konfiguration "${name}" wirklich löschen?`)) return;
+
+  delete all[name];
+  setStoredArchiveConfigs(all);
+
+  if (st && st.activeConfigName === name) {
+    st.activeConfigName = '';
+    updatePanelTitle(panelEl);
+  }
+
+  refreshAllPanelConfigSelects();
+  showPanelNotice(panelEl, 'Konfiguration gelöscht');
 }
 
 function fillEmbedConfigSelect(panelEl) {
@@ -821,6 +1261,39 @@ function getCheckedValues(containerEl) {
   return Array.from(containerEl.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
 }
 
+function enforcePanelChecklistHeights(panelEl) {
+  if (!panelEl) return;
+  const connList = panelEl.querySelector('.conn-checklist');
+  const lpList = panelEl.querySelector('.lp-checklist');
+  if (!connList || !lpList) return;
+
+  const connTools = panelEl.querySelector('.conn-control .list-pick-tools');
+  const lpTools = panelEl.querySelector('.lp-control .list-pick-tools');
+  if (connTools && lpTools) {
+    connTools.style.height = '';
+    connTools.style.minHeight = '';
+    lpTools.style.height = '';
+    lpTools.style.minHeight = '';
+    const toolsH = Math.max(connTools.getBoundingClientRect().height, lpTools.getBoundingClientRect().height);
+    if (toolsH > 0) {
+      const px = `${Math.ceil(toolsH)}px`;
+      connTools.style.height = px;
+      connTools.style.minHeight = px;
+      lpTools.style.height = px;
+      lpTools.style.minHeight = px;
+    }
+  }
+
+  const raw = getComputedStyle(panelGrid).getPropertyValue('--list-h').trim();
+  const h = raw || '12rem';
+  [connList, lpList].forEach((el) => {
+    el.style.height = h;
+    el.style.minHeight = h;
+    el.style.maxHeight = h;
+    el.style.boxSizing = 'border-box';
+  });
+}
+
 function refreshLogpointOptions(panelEl) {
   const connBox = panelEl.querySelector('.conn-checklist');
   const lpBox = panelEl.querySelector('.lp-checklist');
@@ -828,7 +1301,7 @@ function refreshLogpointOptions(panelEl) {
   const st = panelState.get(panelEl);
   const prev = new Set(st ? st.selectedLpIds : getCheckedValues(lpBox));
 
-  const filtered = logpoints.filter((lp) => selectedConns.size === 0 || selectedConns.has(String(lp.connectionId)));
+  const filtered = logpoints.filter((lp) => selectedConns.has(String(lp.connectionId)));
   const sorted = filtered.slice().sort((a,b) => {
     const ad = String(a.displayName || a.browseName || a.nodeId || '');
     const bd = String(b.displayName || b.browseName || b.nodeId || '');
@@ -858,7 +1331,7 @@ function refreshLogpointOptions(panelEl) {
       if (!st) return;
       markPanelAsCustom(panelEl);
       st.colorByLogpoint[input.dataset.lpid] = input.value;
-      if (st.trendEnabled) renderTrend(panelEl);
+      if (st.trendEnabled) safeRenderTrend(panelEl);
     });
   });
 }
@@ -988,7 +1461,7 @@ function wireTrendRuntimeInteractions(panelEl, trendMeta) {
     if (fromInput) fromInput.value = toInputDateTimeValue(nextMin);
     if (toInput) toInput.value = toInputDateTimeValue(nextMax);
 
-    renderTrend(panelEl);
+    safeRenderTrend(panelEl);
   };
 
   svg.addEventListener('pointerdown', (ev) => {
@@ -1061,7 +1534,7 @@ function renderTrend(panelEl) {
   const note = panelEl.querySelector('.trend-note');
   if (!svg || !note) return;
 
-  const rows = Array.isArray(st.lastRows) ? st.lastRows : [];
+  const rows = getTrendRenderRows(st);
   if (rows.length === 0) {
     svg.innerHTML = '';
     note.textContent = 'Keine Daten für Trendansicht vorhanden.';
@@ -1097,9 +1570,15 @@ function renderTrend(panelEl) {
     return;
   }
 
-  const allPts = Array.from(groups.values()).flat();
-  const dataMinTs = Math.min(...allPts.map((p) => p.ts));
-  const dataMaxTs = Math.max(...allPts.map((p) => p.ts));
+  const allPts = [];
+  for (const pts of groups.values()) {
+    for (const point of pts) {
+      allPts.push(point);
+    }
+  }
+  const tsBounds = getFiniteMinMax(allPts, (p) => p.ts);
+  const dataMinTs = tsBounds.min;
+  const dataMaxTs = tsBounds.max;
 
   const boolLpIds = new Set();
   for (const [lpId, isBoolOnly] of boolOnlyByLp.entries()) {
@@ -1108,33 +1587,57 @@ function renderTrend(panelEl) {
   const numericPts = [];
   const boolPts = [];
   for (const [lpId, pts] of groups.entries()) {
-    if (boolLpIds.has(lpId)) boolPts.push(...pts);
-    else numericPts.push(...pts);
+    if (boolLpIds.has(lpId)) {
+      for (const point of pts) {
+        boolPts.push(point);
+      }
+    } else {
+      for (const point of pts) {
+        numericPts.push(point);
+      }
+    }
   }
   const hasNumericSeries = numericPts.length > 0;
   const hasBooleanSeries = boolPts.length > 0;
 
-  const minVal = hasNumericSeries ? Math.min(...numericPts.map((p) => p.value)) : 0;
-  const maxVal = hasNumericSeries ? Math.max(...numericPts.map((p) => p.value)) : 1;
+  const numericBounds = hasNumericSeries ? getFiniteMinMax(numericPts, (p) => p.value) : { min: 0, max: 1 };
+  const minVal = hasNumericSeries ? numericBounds.min : 0;
+  const maxVal = hasNumericSeries ? numericBounds.max : 1;
 
   let minTs = dataMinTs;
   let maxTs = dataMaxTs;
   if (st.trendViewport && Number.isFinite(st.trendViewport.minTs) && Number.isFinite(st.trendViewport.maxTs)) {
-    minTs = Math.max(dataMinTs, st.trendViewport.minTs);
-    maxTs = Math.min(dataMaxTs, st.trendViewport.maxTs);
+    minTs = Number(st.trendViewport.minTs);
+    maxTs = Number(st.trendViewport.maxTs);
   }
   if (!(maxTs > minTs)) {
     minTs = dataMinTs;
     maxTs = dataMaxTs;
   }
 
+  const stretchSeriesToWindow = (ptsIn) => {
+    const pts = (Array.isArray(ptsIn) ? ptsIn : []).slice().sort((a, b) => a.ts - b.ts);
+    if (!pts.length) return [];
+    const out = pts.slice();
+    const first = out[0];
+    const last = out[out.length - 1];
+    if (first.ts > minTs) out.unshift({ ts: minTs, value: first.value, display: first.display || '' });
+    if (last.ts < maxTs) out.push({ ts: maxTs, value: last.value, display: last.display || '' });
+    if (out.length === 1 && maxTs > minTs) {
+      out.push({ ts: maxTs, value: out[0].value, display: out[0].display || '' });
+    }
+    return out;
+  };
+
   const numericSeriesStats = new Map();
   for (const [lpId, ptsRaw] of groups.entries()) {
     if (boolLpIds.has(lpId)) continue;
     const pts = ptsRaw.filter((p) => p.ts >= minTs && p.ts <= maxTs);
     if (!pts.length) continue;
-    let sMin = Math.min(...pts.map((p) => Number(p.value)));
-    let sMax = Math.max(...pts.map((p) => Number(p.value)));
+    const seriesBounds = getFiniteMinMax(pts, (p) => p.value);
+    let sMin = seriesBounds.min;
+    let sMax = seriesBounds.max;
+    if (!Number.isFinite(sMin) || !Number.isFinite(sMax)) continue;
     if (!(sMax > sMin)) {
       const bump = Math.max(1, Math.abs(sMax) * 0.02);
       sMin -= bump;
@@ -1274,10 +1777,11 @@ function renderTrend(panelEl) {
   const seriesByLp = new Map();
 
   for (const [lpId, ptsRaw] of groups.entries()) {
-    const pts = ptsRaw
+    const ptsWindow = ptsRaw
       .slice()
       .sort((a, b) => a.ts - b.ts)
       .filter((p) => p.ts >= minTs && p.ts <= maxTs);
+    const pts = stretchSeriesToWindow(ptsWindow);
     if (pts.length < 2) continue;
     const isBoolSeries = !!boolOnlyByLp.get(lpId);
     const ptsSvg = pts.map((p) => ({
@@ -1352,6 +1856,19 @@ function renderTrend(panelEl) {
     : (hasBooleanSeries ? 'boolsche' : 'numerische');
   const axisNote = hasNumericSeries ? ` Numerikachsen links: ${axisDefs.length}.` : '';
   note.textContent = `${groups.size} Trendlinie(n), ${total} ${kinds} Datenpunkte. Sichtfenster: ${new Date(minTs).toLocaleString('de-DE')} bis ${new Date(maxTs).toLocaleString('de-DE')}.${axisNote}`;
+}
+
+function safeRenderTrend(panelEl) {
+  try {
+    renderTrend(panelEl);
+  } catch (error) {
+    console.error('Trend rendering failed', error);
+    const svg = panelEl.querySelector('.trend-svg');
+    const note = panelEl.querySelector('.trend-note');
+    if (svg) svg.innerHTML = '';
+    if (note) note.textContent = 'Trendansicht konnte für diesen Zeitraum nicht dargestellt werden. Die Tabellendaten bleiben verfügbar.';
+    renderTrendLegend(panelEl, new Map());
+  }
 }
 
 function exportPanelCsv(panelEl) {
@@ -1791,7 +2308,7 @@ function syncPanelStateFromInputs(panelEl) {
   if (!st) return;
   st.selectedConnIds = getCheckedValues(panelEl.querySelector('.conn-checklist'));
   st.selectedLpIds = getCheckedValues(panelEl.querySelector('.lp-checklist'));
-  st.limit = Number(panelEl.querySelector('.limit-input').value) || 100000;
+  st.limit = clampDisplayLimit(panelEl.querySelector('.limit-input').value);
   st.fromTs = fromInputDateTimeValue(panelEl.querySelector('.from-input').value, Date.now() - 3600_000);
   st.toTs = fromInputDateTimeValue(panelEl.querySelector('.to-input').value, Date.now());
   st.relativeRangeMs = Math.max(60_000, st.toTs - st.fromTs);
@@ -1845,7 +2362,8 @@ async function loadPanelData(panelEl, opts = {}) {
   const incremental = !!opts.incremental;
   const connIds = getCheckedValues(panelEl.querySelector('.conn-checklist'));
   const lpIds = getCheckedValues(panelEl.querySelector('.lp-checklist'));
-  const limit = Number(panelEl.querySelector('.limit-input').value) || 100000;
+  const limit = clampDisplayLimit(panelEl.querySelector('.limit-input').value);
+  const queryLimit = Math.min(MAX_ARCHIVE_QUERY_POINTS, Math.max(limit * 10, DEFAULT_MAX_DISPLAY_POINTS * 5));
   const st = panelState.get(panelEl);
   const inputFrom = fromInputDateTimeValue(panelEl.querySelector('.from-input').value, Date.now() - 3600_000);
   const fromTs = incremental && st && Number.isFinite(st.lastCursorTs) ? st.lastCursorTs + 1 : inputFrom;
@@ -1862,7 +2380,7 @@ async function loadPanelData(panelEl, opts = {}) {
     const res = await fetch(api('/archive/query'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ connectionIds: connIds, logpointIds: lpIds, from: fromTs, to: toTs, limit })
+      body: JSON.stringify({ connectionIds: connIds, logpointIds: lpIds, from: fromTs, to: toTs, limit: queryLimit })
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || ('HTTP ' + res.status));
@@ -1871,13 +2389,20 @@ async function loadPanelData(panelEl, opts = {}) {
     if (st) {
       if (incremental) {
         const sortedNew = rows.slice().sort((a, b) => Number(a.ts) - Number(b.ts));
-        st.lastRows = mergeIncrementalRows(st, sortedNew, limit);
-        renderRowsIntoTable(panelEl, st.lastRows, false);
+        st.lastRows = mergeIncrementalRows(st, sortedNew, queryLimit);
       } else {
-        renderRowsIntoTable(panelEl, rows, false);
         st.lastRows = rows.slice();
       }
 
+      const compressed = compressRowsForDisplay(st.lastRows, limit);
+      st.lastDisplayRows = compressed.rows;
+      st.displayCompression = {
+        compressed: compressed.compressed,
+        sourceCount: compressed.sourceCount,
+        displayedCount: compressed.displayedCount
+      };
+
+      renderRowsIntoTable(panelEl, st.lastDisplayRows, false);
       capTableRows(panelEl, limit);
 
       const cursorBase = incremental ? (st.lastCursorTs || 0) : (inputFrom - 1);
@@ -1890,13 +2415,20 @@ async function loadPanelData(panelEl, opts = {}) {
       st.toTs = toTs;
     }
 
+    const totalAvailable = Number(json.totalAvailable);
+    const availableForStatus = Number.isFinite(totalAvailable)
+      ? totalAvailable
+      : (st && st.displayCompression ? st.displayCompression.sourceCount : rows.length);
+
     if (incremental) {
-      status.textContent = rows.length ? `${rows.length} neue Datensaetze hinzugefuegt` : 'Keine neuen Datensaetze';
+      status.textContent = rows.length
+        ? `${rows.length} neue Datensaetze hinzugefuegt | ${buildLoadedStatusText((st && st.displayCompression && st.displayCompression.displayedCount) || 0, availableForStatus, st)}`
+        : `Keine neuen Datensaetze${getCompressionStatusSuffix(st)}`;
       panelEl.querySelector('.to-input').value = toInputDateTimeValue(toTs);
     } else {
-      status.textContent = `${rows.length} Datensaetze geladen`;
+      status.textContent = buildLoadedStatusText((st && st.displayCompression && st.displayCompression.displayedCount) || 0, availableForStatus, st);
     }
-    renderTrend(panelEl);
+    safeRenderTrend(panelEl);
   } catch (e) {
     status.textContent = 'Fehler: ' + String(e.message || e);
   }
@@ -1941,10 +2473,10 @@ async function togglePanelLive(panelEl) {
 function zoomTrend(panelEl, factor) {
   const st = panelState.get(panelEl);
   if (!st || !Array.isArray(st.lastRows) || !st.lastRows.length) return;
-  const numeric = st.lastRows.map((r) => Number(r.ts)).filter((n) => Number.isFinite(n));
-  if (!numeric.length) return;
-  const dataMin = Math.min(...numeric);
-  const dataMax = Math.max(...numeric);
+  const bounds = getFiniteMinMax(st.lastRows, (r) => r.ts);
+  if (!Number.isFinite(bounds.min) || !Number.isFinite(bounds.max)) return;
+  const dataMin = bounds.min;
+  const dataMax = bounds.max;
   const current = st.trendViewport || { minTs: dataMin, maxTs: dataMax };
   const center = (current.minTs + current.maxTs) / 2;
   const half = ((current.maxTs - current.minTs) * factor) / 2;
@@ -1952,16 +2484,16 @@ function zoomTrend(panelEl, factor) {
   const maxTs = Math.min(dataMax, center + half);
   if (!(maxTs > minTs)) return;
   st.trendViewport = { minTs, maxTs };
-  renderTrend(panelEl);
+  safeRenderTrend(panelEl);
 }
 
 function panTrend(panelEl, ratio) {
   const st = panelState.get(panelEl);
   if (!st || !Array.isArray(st.lastRows) || !st.lastRows.length) return;
-  const numeric = st.lastRows.map((r) => Number(r.ts)).filter((n) => Number.isFinite(n));
-  if (!numeric.length) return;
-  const dataMin = Math.min(...numeric);
-  const dataMax = Math.max(...numeric);
+  const bounds = getFiniteMinMax(st.lastRows, (r) => r.ts);
+  if (!Number.isFinite(bounds.min) || !Number.isFinite(bounds.max)) return;
+  const dataMin = bounds.min;
+  const dataMax = bounds.max;
   const current = st.trendViewport || { minTs: dataMin, maxTs: dataMax };
   const span = current.maxTs - current.minTs;
   const delta = span * ratio;
@@ -1977,7 +2509,7 @@ function panTrend(panelEl, ratio) {
   }
   if (!(maxTs > minTs)) return;
   st.trendViewport = { minTs, maxTs };
-  renderTrend(panelEl);
+  safeRenderTrend(panelEl);
 }
 
 function renderPanels() {
@@ -1999,52 +2531,76 @@ function renderPanels() {
       <div class="archive-head">
         <div class="head-title-wrap">
           <h3 class="panel-title"></h3>
+          <span class="panel-config-actions">
+            <select class="panel-config-select" aria-label="Konfiguration laden" title="Konfiguration laden"></select>
+            <button class="btn panel-icon-btn" type="button" data-panel-action="save-config" title="Konfiguration speichern" aria-label="Konfiguration speichern">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 4h11l3 3v13H5z"></path>
+                <path d="M8 4v6h7V4"></path>
+                <rect x="8" y="14" width="8" height="5" rx="1"></rect>
+              </svg>
+            </button>
+            <button class="btn panel-icon-btn delete" type="button" data-panel-action="delete-config" title="Konfiguration löschen" aria-label="Konfiguration löschen">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="3,6 21,6"></polyline>
+                <path d="M8 6v-2h8v2"></path>
+                <rect x="6" y="6" width="12" height="14" rx="1"></rect>
+                <line x1="10" y1="10" x2="10" y2="17"></line>
+                <line x1="14" y1="10" x2="14" y2="17"></line>
+              </svg>
+            </button>
+          </span>
           <span class="embed-config-controls">
             <select class="embed-config-select" aria-label="Trendkonfiguration auswählen" title="Trendkonfiguration auswählen"></select>
           </span>
           <span class="panel-notice" aria-live="polite"></span>
         </div>
-        <div class="live-controls">
-          <button class="btn live-btn" type="button">Live: Aus</button>
-          <label class="muted-small" style="display:flex;align-items:center;gap:.25rem;">Zyklus
-            <input type="number" min="1" step="1" class="live-interval-input" style="width:4.5rem;" value="5">s
-          </label>
-        </div>
         <div class="head-actions">
-          <span class="panel-config-actions" style="display:inline-flex; gap:.35rem;">
-            <button class="btn" type="button" data-panel-action="load-config">Konfiguration laden</button>
-            <button class="btn" type="button" data-panel-action="save-config">Konfiguration speichern</button>
-            <button class="btn" type="button" data-panel-action="embed-url">Embed URL</button>
-          </span>
+          <button class="btn" type="button" data-panel-action="embed-url">Embed URL</button>
           <button class="btn" type="button" data-action="export">Export CSV</button>
-          <button class="btn btn--primary load-panel-btn">Laden</button>
         </div>
       </div>
 
+      <div class="config-collapse-row">
+        <button class="btn config-collapse-btn" type="button" aria-label="Konfiguration einklappen" title="Konfiguration ein- oder ausklappen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>
+        </button>
+        <span class="muted-small">Konfiguration</span>
+      </div>
       <div class="control-grid">
         <label class="conn-control">Verbindungen
-          <div class="pick-tools">
-            <button class="btn small pick-all" data-target="conn" type="button">Alle wählen</button>
-            <button class="btn small pick-none" data-target="conn" type="button">Keine wählen</button>
+          <div class="pick-tools list-pick-tools conn-live-row">
+            <span style="display:inline-flex; gap:.35rem; align-items:center;">
+              <button class="btn small pick-all" data-target="conn" type="button">Alle wählen</button>
+              <button class="btn small pick-none" data-target="conn" type="button">Keine wählen</button>
+            </span>
           </div>
           <div class="checklist conn-checklist"></div>
         </label>
 
         <label class="lp-control">Logpoints
-          <div class="pick-tools">
-            <button class="btn small pick-all" data-target="lp" type="button">Alle wählen</button>
-            <button class="btn small pick-none" data-target="lp" type="button">Keine wählen</button>
+          <div class="pick-tools list-pick-tools">
+            <span style="display:inline-flex; gap:.35rem; align-items:center;">
+              <button class="btn small pick-all" data-target="lp" type="button">Alle wählen</button>
+              <button class="btn small pick-none" data-target="lp" type="button">Keine wählen</button>
+            </span>
           </div>
           <div class="checklist lp-checklist"></div>
         </label>
 
-        <label>Zeitbereich
+        <label class="time-control">Zeitbereich
           <div class="time-row">
             <div class="quick-btns">
               <button class="btn small quick-btn" data-q="1h">1h</button>
               <button class="btn small quick-btn" data-q="24h">24h</button>
               <button class="btn small quick-btn" data-q="7d">7d</button>
               <button class="btn small quick-btn" data-q="30d">30d</button>
+              <span class="live-controls">
+                <button class="btn live-btn" type="button">Live: Aus</button>
+                <label class="muted-small" style="display:flex;align-items:center;gap:.25rem;">Zyklus
+                  <input type="number" min="1" step="1" class="live-interval-input" value="5">s
+                </label>
+              </span>
             </div>
             <div class="date-range">
               <input type="datetime-local" class="from-input">
@@ -2054,8 +2610,9 @@ function renderPanels() {
           </div>
         </label>
 
-        <label class="limit-control">Maximale Datenpunkte
-          <input type="number" class="limit-input" min="1" max="100000" value="100000">
+        <label class="limit-control"><span class="limit-label">Maximale Datenpunkte</span>
+          <input type="number" class="limit-input" min="1" max="100000" value="20000">
+          <button class="btn btn--primary load-panel-btn" type="button" style="margin-top:.45rem; align-self:flex-start;">Laden</button>
         </label>
       </div>
 
@@ -2169,7 +2726,7 @@ function renderPanels() {
 
     fromInput.value = toInputDateTimeValue(cfg.fromTs || (Date.now() - 3600_000));
     toInput.value = toInputDateTimeValue(cfg.toTs || Date.now());
-    limitInput.value = String(cfg.limit || 100000);
+    limitInput.value = String(clampDisplayLimit(cfg.limit || DEFAULT_MAX_DISPLAY_POINTS));
     liveIntInput.value = String(Math.max(1, Math.round((cfg.liveMs || 5000) / 1000)));
     const fmtSelInit = panel.querySelector('.export-format-select');
     if (fmtSelInit && cfg.exportFormat) {
@@ -2180,18 +2737,28 @@ function renderPanels() {
       markPanelAsCustom(panel);
       syncPanelStateFromInputs(panel);
       refreshLogpointOptions(panel);
+      enforcePanelChecklistHeights(panel);
     });
+    const reloadPanelOnConfigChange = () => {
+      loadPanelData(panel, { incremental: false }).catch((err) => {
+        panel.querySelector('.panel-status').textContent = 'Fehler: ' + String((err && err.message) || err);
+      });
+    };
+
     fromInput.addEventListener('change', () => {
       markPanelAsCustom(panel);
       syncPanelStateFromInputs(panel);
+      reloadPanelOnConfigChange();
     });
     toInput.addEventListener('change', () => {
       markPanelAsCustom(panel);
       syncPanelStateFromInputs(panel);
+      reloadPanelOnConfigChange();
     });
     limitInput.addEventListener('change', () => {
       markPanelAsCustom(panel);
       syncPanelStateFromInputs(panel);
+      reloadPanelOnConfigChange();
     });
     liveIntInput.addEventListener('input', (ev) => {
       ev.stopPropagation();
@@ -2233,6 +2800,15 @@ function renderPanels() {
       panel.querySelector('.table-collapse-btn').setAttribute('aria-label', cfg.tableCollapsed ? 'Tabelle ausklappen' : 'Tabelle einklappen');
     });
 
+    panel.querySelector('.config-collapse-btn').addEventListener('click', () => {
+      cfg.configCollapsed = !cfg.configCollapsed;
+      panel.classList.toggle('config-collapsed', cfg.configCollapsed);
+      panel.querySelector('.config-collapse-btn').innerHTML = cfg.configCollapsed
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,10 12,16 18,10"></polyline></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>';
+      panel.querySelector('.config-collapse-btn').setAttribute('aria-label', cfg.configCollapsed ? 'Konfiguration ausklappen' : 'Konfiguration einklappen');
+    });
+
     panel.querySelectorAll('.pick-all').forEach((btn) => {
       btn.addEventListener('click', () => {
         markPanelAsCustom(panel);
@@ -2268,6 +2844,7 @@ function renderPanels() {
         markPanelAsCustom(panel);
         setQuickRange(panel, btn.dataset.q);
         syncPanelStateFromInputs(panel);
+        reloadPanelOnConfigChange();
       });
     });
     panel.querySelector('.trend-toggle-btn').addEventListener('click', () => {
@@ -2279,11 +2856,24 @@ function renderPanels() {
         ? '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>'
         : '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,10 12,16 18,10"></polyline></svg>';
       panel.querySelector('.trend-toggle-btn').setAttribute('aria-label', st.trendEnabled ? 'Trendansicht einklappen' : 'Trendansicht ausklappen');
-      if (st.trendEnabled) renderTrend(panel);
+      if (st.trendEnabled) safeRenderTrend(panel);
     });
     panel.querySelector('.live-btn').addEventListener('click', () => togglePanelLive(panel));
     panel.querySelector('[data-action="export"]').addEventListener('click', () => exportPanelCsv(panel));
     panel.querySelector('.load-panel-btn').addEventListener('click', () => loadPanelData(panel, { incremental: false }));
+
+    fillPanelConfigSelect(panel);
+    const panelCfgSel = panel.querySelector('.panel-config-select');
+    if (panelCfgSel) {
+      panelCfgSel.addEventListener('change', () => {
+        const picked = String(panelCfgSel.value || '');
+        if (!picked) return;
+        applyPanelConfigByName(panel, picked).catch((err) => {
+          alert('Konfiguration konnte nicht geladen werden: ' + String((err && err.message) || err));
+        });
+      });
+    }
+
     panel.querySelectorAll('[data-panel-action]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const action = btn.getAttribute('data-panel-action');
@@ -2291,12 +2881,7 @@ function renderPanels() {
           savePanelConfig(panel);
           return;
         }
-        if (action === 'load-config') {
-          loadPanelConfig(panel).catch((err) => {
-            alert('Konfiguration konnte nicht geladen werden: ' + String((err && err.message) || err));
-          });
-          return;
-        }
+        if (action === 'delete-config') return deletePanelConfig(panel);
         if (action === 'embed-url') {
           createEmbedUrlForPanel(panel).catch((err) => {
             alert('Embed-URL konnte nicht erstellt werden: ' + String((err && err.message) || err));
@@ -2337,17 +2922,18 @@ function renderPanels() {
         if (action === 'reset') {
           const st = panelState.get(panel);
           st.trendViewport = null;
-          renderTrend(panel);
+          safeRenderTrend(panel);
         }
       });
     });
 
+    enforcePanelChecklistHeights(panel);
     refreshLogpointOptions(panel);
     const lpSel = panel.querySelector('.lp-checklist');
     lpSel.addEventListener('change', () => {
       markPanelAsCustom(panel);
       syncPanelStateFromInputs(panel);
-      if (cfg.trendEnabled) renderTrend(panel);
+      if (cfg.trendEnabled) safeRenderTrend(panel);
     });
     if (cfg.selectedLpIds.length) {
       lpSel.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
@@ -2356,9 +2942,18 @@ function renderPanels() {
     }
 
     if (Array.isArray(cfg.lastRows) && cfg.lastRows.length) {
-      renderRowsIntoTable(panel, cfg.lastRows, false);
-      panel.querySelector('.panel-status').textContent = `${cfg.lastRows.length} Datensaetze geladen (wiederhergestellt)`;
-      if (cfg.trendEnabled) renderTrend(panel);
+      const restoredCompressed = compressRowsForDisplay(cfg.lastRows, clampDisplayLimit(cfg.limit || DEFAULT_MAX_DISPLAY_POINTS));
+      cfg.lastDisplayRows = restoredCompressed.rows;
+      cfg.displayCompression = {
+        compressed: restoredCompressed.compressed,
+        sourceCount: restoredCompressed.sourceCount,
+        displayedCount: restoredCompressed.displayedCount
+      };
+      renderRowsIntoTable(panel, cfg.lastDisplayRows, false);
+      const restoredLoaded = (cfg.displayCompression && cfg.displayCompression.displayedCount) || cfg.lastDisplayRows.length || 0;
+      const restoredAvailable = (cfg.displayCompression && cfg.displayCompression.sourceCount) || cfg.lastRows.length || 0;
+      panel.querySelector('.panel-status').textContent = `${buildLoadedStatusText(restoredLoaded, restoredAvailable, cfg)} (wiederhergestellt)`;
+      if (cfg.trendEnabled) safeRenderTrend(panel);
     }
 
     panel.classList.toggle('trend-enabled', !!cfg.trendEnabled);
@@ -2371,6 +2966,11 @@ function renderPanels() {
       ? '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,10 12,16 18,10"></polyline></svg>'
       : '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>';
     panel.querySelector('.table-collapse-btn').setAttribute('aria-label', cfg.tableCollapsed ? 'Tabelle ausklappen' : 'Tabelle einklappen');
+    panel.classList.toggle('config-collapsed', !!cfg.configCollapsed);
+    panel.querySelector('.config-collapse-btn').innerHTML = cfg.configCollapsed
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,10 12,16 18,10"></polyline></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6,14 12,8 18,14"></polyline></svg>';
+    panel.querySelector('.config-collapse-btn').setAttribute('aria-label', cfg.configCollapsed ? 'Konfiguration ausklappen' : 'Konfiguration einklappen');
     updateLiveUi(panel, cfg);
     if (cfg.liveEnabled) {
       cfg.liveTimer = setInterval(() => loadPanelData(panel, { incremental: true }), cfg.liveMs || 5000);
@@ -2450,6 +3050,7 @@ loadAllBtn.addEventListener('click', async () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
+    await initRoleUi();
     document.body.classList.toggle('embed-trend-mode', EMBED_MODE);
     wireModeButtons();
     await loadBaseData();

@@ -20,6 +20,21 @@ const router = express.Router();
 const store = require('../lib/logpoint-store');
 const measurementStore = require('../lib/measurement-store');
 
+function roleLevel(req) {
+  const roles = (req && req.auth && Array.isArray(req.auth.roles)) ? req.auth.roles : [];
+  if (roles.includes('Systemadministrator')) return 5;
+  if (roles.includes('Administrator')) return 4;
+  if (roles.includes('Bediener')) return 3;
+  if (roles.includes('Beobachten')) return 2;
+  if (roles.includes('Trend')) return 1;
+  return 0;
+}
+
+function requireAdministrator(req, res, next) {
+  if (roleLevel(req) < 4) return res.status(403).json({ error: 'Keine Berechtigung.' });
+  next();
+}
+
 // node-opcua (optional)
 let nodeOpcUaAvailable = true;
 let opcua;
@@ -63,7 +78,7 @@ router.get('/logpoints', async (req, res) => {
 });
 
 /* POST /api/opcua/logpoints */
-router.post('/logpoints', async (req, res) => {
+router.post('/logpoints', requireAdministrator, async (req, res) => {
   try {
     const obj = req.body || {};
     const created = await safeCall(() => store.create(obj));
@@ -76,7 +91,7 @@ router.post('/logpoints', async (req, res) => {
 });
 
 /* POST /api/opcua/logpoints/bulk */
-router.post('/logpoints/bulk', async (req, res) => {
+router.post('/logpoints/bulk', requireAdministrator, async (req, res) => {
   try {
     const arr = Array.isArray(req.body) ? req.body : (req.body && req.body.items) || [];
     if (!Array.isArray(arr) || arr.length === 0) {
@@ -95,7 +110,7 @@ router.post('/logpoints/bulk', async (req, res) => {
 });
 
 /* PUT /api/opcua/logpoints/:id */
-router.put('/logpoints/:id', async (req, res) => {
+router.put('/logpoints/:id', requireAdministrator, async (req, res) => {
   try {
     const id = req.params.id;
     const patch = req.body || {};
@@ -110,7 +125,7 @@ router.put('/logpoints/:id', async (req, res) => {
 });
 
 /* DELETE /api/opcua/logpoints/:id */
-router.delete('/logpoints/:id', async (req, res) => {
+router.delete('/logpoints/:id', requireAdministrator, async (req, res) => {
   try {
     const id = req.params.id;
     const removed = await safeCall(() => store.remove(id));
@@ -178,13 +193,15 @@ router.post('/archive/query', (req, res) => {
     });
 
     if (selectedLogpoints.length === 0) {
-      return res.json({ rows: [], count: 0 });
+      return res.json({ rows: [], count: 0, totalAvailable: 0 });
     }
 
     const rows = [];
+    let totalAvailable = 0;
     for (const lp of selectedLogpoints) {
       const createdAtTs = lp.createdAt ? Date.parse(lp.createdAt) : NaN;
       const effectiveFromTs = Number.isFinite(createdAtTs) ? Math.max(fromTs, createdAtTs) : fromTs;
+      totalAvailable += Number((typeof measurementStore.count === 'function' ? measurementStore.count(lp.connectionId, lp.id, effectiveFromTs, toTs) : 0) || 0);
       const lpRows = measurementStore.query(lp.connectionId, lp.id, effectiveFromTs, toTs, limit);
       for (const r of lpRows) {
         rows.push({
@@ -200,7 +217,7 @@ router.post('/archive/query', (req, res) => {
 
     rows.sort((a, b) => Number(b.ts) - Number(a.ts));
     const limited = rows.slice(0, Math.max(1, limit));
-    return res.json({ rows: limited, count: limited.length });
+    return res.json({ rows: limited, count: limited.length, totalAvailable });
   } catch (err) {
     console.error('POST /archive/query error', err);
     return res.status(500).json({ error: String(err) });
@@ -208,7 +225,7 @@ router.post('/archive/query', (req, res) => {
 });
 
 /* POST /api/opcua/logger/restart – startet alle OPC UA Subscriptions neu */
-router.post('/logger/restart', async (req, res) => {
+router.post('/logger/restart', requireAdministrator, async (req, res) => {
   try {
     if (typeof global.__opcuaLogger === 'object' && typeof global.__opcuaLogger.restartAll === 'function') {
       await global.__opcuaLogger.restartAll();

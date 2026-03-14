@@ -183,13 +183,39 @@ module.exports = {
     const rows = [];
     for (const db of dbs) {
       const part = db.prepare(
-        'SELECT id, logpoint_id, ts, value FROM measurements WHERE logpoint_id = ? AND ts BETWEEN ? AND ? ORDER BY ts DESC'
-      ).all(numericLogpointId, fromTs, toTs);
-      rows.push(...part);
+        'SELECT id, logpoint_id, ts, value FROM measurements WHERE logpoint_id = ? AND ts BETWEEN ? AND ? ORDER BY ts DESC LIMIT ?'
+      ).all(numericLogpointId, fromTs, toTs, lim);
+      for (const row of part) {
+        rows.push(row);
+      }
     }
 
     rows.sort((a, b) => Number(b.ts) - Number(a.ts));
     return rows.slice(0, lim);
+  },
+
+  /**
+   * Anzahl Messwerte für einen Logpoint im Zeitraum zählen.
+   * @param {string} connectionId
+   * @param {number|string} logpointId
+   * @param {number} fromTs
+   * @param {number} toTs
+   * @returns {number}
+   */
+  count(connectionId, logpointId, fromTs, toTs) {
+    const numericLogpointId = Number(logpointId);
+    if (!Number.isInteger(numericLogpointId) || numericLogpointId <= 0) return 0;
+    const dbs = openDbCandidatesForQuery(String(connectionId), fromTs, toTs);
+    if (dbs.length === 0) return 0;
+
+    let total = 0;
+    for (const db of dbs) {
+      const row = db.prepare(
+        'SELECT COUNT(*) AS c FROM measurements WHERE logpoint_id = ? AND ts BETWEEN ? AND ?'
+      ).get(numericLogpointId, fromTs, toTs);
+      total += Number((row && row.c) || 0);
+    }
+    return total;
   },
 
   /**
@@ -208,9 +234,11 @@ module.exports = {
     const rows = [];
     for (const db of dbs) {
       const part = db.prepare(
-        'SELECT id, logpoint_id, ts, value FROM measurements WHERE ts BETWEEN ? AND ? ORDER BY ts DESC'
-      ).all(fromTs, toTs);
-      rows.push(...part);
+        'SELECT id, logpoint_id, ts, value FROM measurements WHERE ts BETWEEN ? AND ? ORDER BY ts DESC LIMIT ?'
+      ).all(fromTs, toTs, lim);
+      for (const row of part) {
+        rows.push(row);
+      }
     }
 
     rows.sort((a, b) => Number(b.ts) - Number(a.ts));
