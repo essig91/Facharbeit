@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Benutzerverwaltung</title>
+  <link rel="stylesheet" href="/_shell.css">
+  <script src="/_nav-loader.js" defer></script>
+  <script src="/_theme-loader.js" defer></script>
+  <style>
+    body { font-family: var(--shell-font); }
+    .row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:.5rem; }
+    .row label { min-width: 170px; font-weight:600; }
+    .row input, .row select { padding:.45rem .55rem; border:1px solid #ccc; border-radius:6px; }
+    .roles { display:flex; gap:.5rem; flex-wrap:wrap; }
+    .roles label { min-width:auto; font-weight:500; }
+    .create-grid { display:grid; grid-template-columns:210px 1fr; column-gap:.8rem; row-gap:.45rem; align-items:center; max-width:620px; margin-bottom:1.2rem; }
+    .create-grid > label { font-weight:600; }
+    .create-grid input[type="text"], .create-grid input[type="number"] { padding:.45rem .55rem; border:1px solid #ccc; border-radius:6px; }
+    table { width:100%; border-collapse: collapse; margin-top:.8rem; }
+    th, td { border:1px solid #ddd; padding:.45rem; vertical-align: top; }
+    th { background: var(--table-header-bg); color: var(--table-header-contrast); text-align:left; }
+    .muted-small { color: var(--text-muted); font-size:.86rem; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav id="nav-placeholder" class="side-nav" aria-label="Seitennavigation"></nav>
+
+    <main class="main-area" id="page-root">
+      <div class="panel">
+        <h1>Benutzerverwaltung</h1>
+        <div id="status" class="muted-small">Lade...</div>
+
+        <h2 style="margin-top:1rem;">Neuen Benutzer anlegen</h2>
+        <div class="create-grid">
+          <label for="newUser">Benutzername</label>
+          <input id="newUser" type="text" placeholder="z. B. max">
+          <label for="newPass">Passwort</label>
+          <input id="newPass" type="text" placeholder="Passwort">
+          <label for="newMaxAge">Passwortalterung (Tage, 0=aus)</label>
+          <input id="newMaxAge" type="number" min="0" value="90">
+          <label for="newTimeout">Abmeldezeit (Min., 0=nie)</label>
+          <input id="newTimeout" type="number" min="0" value="30">
+          <label>Rolle</label>
+          <div id="newRoles" class="roles"></div>
+          <span></span>
+          <button id="btnCreate" class="btn btn--primary">Benutzer anlegen</button>
+        </div>
+
+        <h2 style="margin-top:1rem;">Benutzer</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Benutzer</th>
+              <th>Rollen</th>
+              <th>Passwortalterung</th>
+              <th>Abmeldezeit (Min.)</th>
+              <th>Passwort setzen</th>
+              <th>Status</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+<script>
+(function () {
+  const statusEl = document.getElementById('status');
+  const usersBody = document.getElementById('usersBody');
+  const newRolesEl = document.getElementById('newRoles');
+  const btnCreate = document.getElementById('btnCreate');
+
+  let availableRoles = [];
+
+  function setStatus(msg) {
+    statusEl.textContent = msg || '';
+  }
+
+  function roleToggle(name, groupName, checked) {
+    const id = groupName + '_' + name;
+    return `<label><input type="checkbox" id="${id}" data-role-option="${groupName}" value="${name}" ${checked ? 'checked' : ''}> ${name}</label>`;
+  }
+
+  function collectRoleFrom(container) {
+    const el = container.querySelector('input[data-role-option]:checked');
+    const val = el ? String(el.value) : '';
+    return val ? [val] : [];
+  }
+
+  function bindSingleRolePicker(container) {
+    if (!container || container.dataset.rolePickerBound === '1') return;
+    container.dataset.rolePickerBound = '1';
+    container.addEventListener('change', (ev) => {
+      const target = ev.target;
+      if (!target || !target.matches('input[data-role-option]')) return;
+      if (!target.checked) return;
+      const group = String(target.getAttribute('data-role-option') || '');
+      Array.from(container.querySelectorAll(`input[data-role-option="${group}"]`)).forEach((el) => {
+        if (el !== target) el.checked = false;
+      });
+    });
+  }
+
+  async function api(url, opts) {
+    const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts || {}));
+    const txt = await res.text().catch(() => '');
+    let json = null;
+    try { json = txt ? JSON.parse(txt) : null; } catch (_) { json = null; }
+    if (!res.ok || (json && json.ok === false)) {
+      throw new Error((json && (json.error || json.message)) || txt || ('HTTP ' + res.status));
+    }
+    return json;
+  }
+
+  async function loadRoles() {
+    const data = await api('/api/auth/roles');
+    availableRoles = Array.isArray(data.roles) ? data.roles.map((r) => String(r.name)) : [];
+    newRolesEl.innerHTML = availableRoles.map((r) => roleToggle(r, 'newRole', false)).join('');
+    bindSingleRolePicker(newRolesEl);
+  }
+
+  function renderUsers(users) {
+    usersBody.innerHTML = '';
+    for (const u of users) {
+      const tr = document.createElement('tr');
+      const rowId = 'u_' + String(u.username).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+      tr.innerHTML = `
+        <td><strong>${u.username}</strong><div class="muted-small">${u.passwordExpired ? 'Passwort abgelaufen' : ''}</div></td>
+        <td><div id="roles_${rowId}" class="roles"></div></td>
+        <td><input id="age_${rowId}" type="number" min="0" value="${Number(u.passwordMaxAgeDays || 0)}" style="width:95px;"></td>
+        <td><input id="to_${rowId}" type="number" min="0" value="${Number(u.sessionTimeoutMinutes != null ? u.sessionTimeoutMinutes : 30)}" style="width:95px;"></td>
+        <td><input id="pwd_${rowId}" type="text" placeholder="Neues Passwort" style="width:180px;"></td>
+        <td>
+          <label><input id="ena_${rowId}" type="checkbox" ${u.enabled ? 'checked' : ''}> aktiv</label>
+          <div class="muted-small">${u.rolesLocked ? 'Rollen gesperrt' : ''}${u.passwordLocked ? ' | Passwort gesperrt' : ''}</div>
+        </td>
+        <td>
+          <button id="save_${rowId}" class="btn btn--primary">Speichern</button>
+          <button id="del_${rowId}" class="btn">Löschen</button>
+        </td>
+      `;
+
+      usersBody.appendChild(tr);
+
+      const rolesWrap = document.getElementById('roles_' + rowId);
+      const groupName = 'role_' + rowId;
+      const currentRole = Array.isArray(u.roles) && u.roles.length > 0 ? u.roles[0] : '';
+      rolesWrap.innerHTML = availableRoles.map((r) => roleToggle(r, groupName, r === currentRole)).join('');
+      bindSingleRolePicker(rolesWrap);
+
+      if (u.rolesLocked) {
+        Array.from(rolesWrap.querySelectorAll('input[data-role-option]')).forEach((el) => { el.disabled = true; });
+      }
+      if (u.passwordLocked) {
+        const p = document.getElementById('pwd_' + rowId);
+        if (p) p.disabled = true;
+      }
+      if (!u.canDelete) {
+        const d = document.getElementById('del_' + rowId);
+        if (d) d.disabled = true;
+      }
+
+      const saveBtn = document.getElementById('save_' + rowId);
+      const delBtn = document.getElementById('del_' + rowId);
+
+      saveBtn.addEventListener('click', async () => {
+        try {
+          const roles = collectRoleFrom(rolesWrap);
+          const age = Number(document.getElementById('age_' + rowId).value || 0);
+          const timeout = Number(document.getElementById('to_' + rowId).value || 0);
+          const pwd = document.getElementById('pwd_' + rowId).value;
+          const enabled = !!document.getElementById('ena_' + rowId).checked;
+
+          const payload = { passwordMaxAgeDays: age, sessionTimeoutMinutes: timeout, enabled: enabled };
+          if (!u.rolesLocked) payload.roles = roles;
+          if (!u.passwordLocked && String(pwd).length > 0) payload.password = String(pwd);
+
+          await api('/api/auth/users/' + encodeURIComponent(u.username), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          setStatus('Benutzer gespeichert: ' + u.username);
+          await loadUsers();
+        } catch (e) {
+          setStatus('Fehler: ' + (e && e.message ? e.message : e));
+        }
+      });
+
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('Benutzer wirklich löschen?')) return;
+        try {
+          await api('/api/auth/users/' + encodeURIComponent(u.username), { method: 'DELETE' });
+          setStatus('Benutzer gelöscht: ' + u.username);
+          await loadUsers();
+        } catch (e) {
+          setStatus('Fehler: ' + (e && e.message ? e.message : e));
+        }
+      });
+    }
+  }
+
+  async function loadUsers() {
+    const data = await api('/api/auth/users');
+    renderUsers(Array.isArray(data.users) ? data.users : []);
+  }
+
+  btnCreate.addEventListener('click', async () => {
+    try {
+      const username = String(document.getElementById('newUser').value || '').trim();
+      const password = String(document.getElementById('newPass').value || '');
+      const maxAge = Number(document.getElementById('newMaxAge').value || 0);
+      const timeout = Number(document.getElementById('newTimeout').value || 30);
+      const roles = collectRoleFrom(newRolesEl);
+      await api('/api/auth/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, roles, passwordMaxAgeDays: maxAge, sessionTimeoutMinutes: timeout })
+      });
+      document.getElementById('newUser').value = '';
+      document.getElementById('newPass').value = '';
+      setStatus('Benutzer angelegt');
+      await loadUsers();
+    } catch (e) {
+      setStatus('Fehler: ' + (e && e.message ? e.message : e));
+    }
+  });
+
+  async function init() {
+    try {
+      await loadRoles();
+      await loadUsers();
+      setStatus('Bereit');
+    } catch (e) {
+      setStatus('Fehler: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

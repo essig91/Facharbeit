@@ -20,6 +20,8 @@
       /* column widths */
       --col-displayname-w: 40%;
       --col-nodeid-w: 1%;
+      --browse-controls-w: 31rem;
+      --browse-grid-template: 1.15rem 1rem 1.25rem minmax(6.7rem, .75fr) minmax(14rem, 1fr) minmax(24rem, var(--browse-controls-w));
     }
 
     body { font-family: var(--shell-font), Arial, sans-serif; color: #111; }
@@ -32,9 +34,9 @@
     th { background: var(--accent); color: var(--accent-contrast); }
     .muted { color:var(--muted); }
     .actions { display:flex; gap:.35rem; align-items:center; }
-    .small { font-size:0.9rem; padding:.2rem .5rem; }
+    .small { font-size:0.9rem; padding:.35rem .55rem; line-height:1.15; height:auto; white-space:nowrap; }
     #browseModal { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.45); display:none; align-items:center; justify-content:center; z-index:9999; }
-    #browseBox { background:#fff; width:95%; max-width:1200px; max-height:85%; overflow:auto; border-radius:6px; padding:12px; box-shadow:0 8px 28px rgba(0,0,0,.25); }
+    #browseBox { background:#fff; width:min(98vw, 1540px); max-height:92vh; overflow:auto; border-radius:6px; padding:12px; box-shadow:0 8px 28px rgba(0,0,0,.25); }
     .nowrap { white-space:nowrap; }
     input[type="number"] { width:6rem; }
     td input[type="text"] { width:100%; box-sizing:border-box; }
@@ -63,6 +65,7 @@
       line-height:34px;
       font-size:0.95rem;
       box-sizing:border-box;
+      white-space:nowrap;
     }
     .btn:hover { background: rgba(43,111,179,0.06); }
     .btn:active { background: rgba(43,111,179,0.12); }
@@ -86,7 +89,107 @@
 
     .icon-svg { width:18px; height:18px; display:inline-block; vertical-align:middle; }
 
+    #browseResult { font-family:monospace; overflow-x:auto; }
     #browseResult table td { font-family:monospace; }
+    .browse-tree { font-family: var(--shell-font), monospace; font-size: .9rem; }
+    .browse-node-row {
+      display:grid;
+      grid-template-columns: var(--browse-grid-template);
+      align-items:center;
+      column-gap:.35rem;
+      padding:.18rem .1rem;
+      border-radius:4px;
+    }
+    .browse-node-row:hover { background: rgba(43,111,179,0.06); }
+    .browse-node-row.is-folder .browse-node-label { font-weight:600; color:#223a58; }
+    .browse-node-row.is-variable .browse-node-label { color:#24313f; }
+    .browse-node-icon {
+      width:1rem;
+      min-width:1rem;
+      text-align:center;
+      color:#4a607f;
+      font-size:.9rem;
+      line-height:1;
+    }
+    .browse-toggle {
+      width:1.15rem;
+      min-width:1.15rem;
+      border:none;
+      background:transparent;
+      cursor:pointer;
+      color:#456;
+      font-size:.85rem;
+      padding:0;
+      line-height:1;
+    }
+    .browse-toggle.empty { visibility:hidden; cursor:default; }
+    .browse-children {
+      margin-left:0;
+      padding-left:0;
+      border-left:none;
+    }
+    .browse-node-label {
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      padding-left:calc(var(--tree-level, 0) * .95rem);
+    }
+    .browse-node-meta { color:#667; font-size:.82rem; white-space:nowrap; }
+    .browse-node-meta { overflow:hidden; text-overflow:ellipsis; }
+    .browse-node-controls {
+      display:grid;
+      grid-template-columns: 6.6rem 5.6rem 4.2rem 5.2rem 3.3rem minmax(6.1rem, 1fr);
+      column-gap:.25rem;
+      align-items:center;
+      margin-left:0;
+      min-width:var(--browse-controls-w);
+      width:var(--browse-controls-w);
+      justify-self:start;
+    }
+    .browse-node-controls input[type="text"],
+    .browse-node-controls input[type="number"] {
+      width:100%;
+      min-width:0;
+      box-sizing:border-box;
+    }
+    .browse-node-row.is-non-variable .browse-node-controls { display:none; }
+    .browse-node-row.is-hidden { display:none; }
+    .browse-tree-toolbar {
+      display:flex;
+      gap:.4rem;
+      align-items:center;
+      margin-bottom:.4rem;
+      flex-wrap:wrap;
+    }
+    .browse-tree-head {
+      display:grid;
+      grid-template-columns: var(--browse-grid-template);
+      column-gap:.35rem;
+      align-items:center;
+      margin: .2rem 0 .25rem 0;
+      padding: .15rem .1rem;
+      font-size:.8rem;
+      color:#5c6f86;
+      border-bottom:1px solid #e0e7f1;
+    }
+    .browse-tree-head-controls {
+      display:grid;
+      grid-template-columns: 6.6rem 5.6rem 4.2rem 5.2rem 3.3rem minmax(6.1rem, 1fr);
+      column-gap:.25rem;
+      align-items:center;
+      min-width:var(--browse-controls-w);
+      width:var(--browse-controls-w);
+    }
+    .browse-node-controls .muted-small { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .browse-controls-bar {
+      display:flex;
+      gap:.5rem;
+      margin:.5rem 0;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .browse-controls-spacer { flex:1 1 auto; min-width:1rem; }
     .form-inline { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
     .form-inline input[type="text"] { min-width: 200px; }
 
@@ -141,8 +244,9 @@
             <input id="manualDisplayName" placeholder="Anzeigename" style="flex:1">
             <input id="manualUnit" placeholder="Einheit" style="width:8rem">
             <input id="manualInterval" type="number" placeholder="Erfassungsintervall in ms" style="width:8rem" value="1000">
-            <label style="display:inline-flex; align-items:center; gap:.3rem;"><input id="manualIsAlarm" type="checkbox"> Störung</label>
+            <label style="display:inline-flex; align-items:center; gap:.3rem;"><input id="manualIsAlarm" type="checkbox"> Ereignis</label>
             <label style="margin-left:0.5rem;">Dezimalstellen <input id="manualDecimals" type="number" min="0" max="6" value="2" style="width:4rem" disabled></label>
+            <label style="margin-left:0.5rem;">Änderungsschwelle <input id="manualThreshold" type="number" min="0" step="0.001" value="0.1" style="width:6rem"></label>
             <button id="btnAddManual" class="btn">Hinzufügen</button>
           </div>
         </section>
@@ -157,18 +261,18 @@
               <button id="browseClose" class="btn">Schließen</button>
             </div>
 
-            <div style="display:flex; gap:.5rem; margin:.5rem 0; align-items:center;">
+            <div class="browse-controls-bar">
               <label class="nowrap">Max Tiefe <input id="browseMaxDepth" type="number" value="4" style="width:4rem"></label>
-              <label class="nowrap">Max Nodes <input id="browseMaxNodes" type="number" value="500" style="width:6rem"></label>
+              <label class="nowrap">Max Nodes <input id="browseMaxNodes" type="number" value="5000" style="width:6rem"></label>
               <button id="browseDo" class="btn">Browse starten</button>
 
-              <div style="flex:1"></div>
+              <div class="browse-controls-spacer"></div>
 
               <button id="browseSelectAll" class="btn">Alle auswählen</button>
               <button id="browseUnselectAll" class="btn">Keine Auswählen</button>
+              <button id="browseExpandAll" class="btn">Alle ausklappen</button>
+              <button id="browseCollapseAll" class="btn">Alle einklappen</button>
               <button id="browseImport" class="btn">Variablen importieren (Ausgewählte)</button>
-
-              <label style="margin-left:1rem;"><input type="checkbox" id="filterVariables" checked> Nur Variablen</label>
 
               <label style="margin-left:0.5rem;" class="nowrap">Namespace
                 <select id="namespaceFilter" style="width:10rem">
@@ -177,7 +281,7 @@
                   <option value="1">1</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
-                  <option value="4">4 - Serverinterface</option>
+                  <option value="4">4</option>
                   <option value="5">5</option>
                   <option value="6">6</option>
                   <option value="7">7</option>
@@ -189,7 +293,7 @@
 
             </div>
 
-            <div id="browseResult" style="font-family:monospace; white-space:pre-wrap;"></div>
+            <div id="browseResult" style="font-family:monospace;"></div>
           </div>
         </div>
 
@@ -275,8 +379,9 @@ const browseDo = document.getElementById('browseDo');
 const browseClose = document.getElementById('browseClose');
 const browseSelectAll = document.getElementById('browseSelectAll');
 const browseUnselectAll = document.getElementById('browseUnselectAll');
+const browseExpandAll = document.getElementById('browseExpandAll');
+const browseCollapseAll = document.getElementById('browseCollapseAll');
 const browseImport = document.getElementById('browseImport');
-const filterVariablesEl = document.getElementById('filterVariables');
 const namespaceFilterEl = document.getElementById('namespaceFilter');
 
 let connectionsCache = [];
@@ -288,6 +393,34 @@ let currentConn = null;
 /* helpers */
 function escapeHtml(s){ if(s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function showGlobal(t){ globalMsg.innerText = t; }
+
+function nodeClassNum(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'object' && typeof v.value === 'number') return v.value;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function isVariableNode(node) {
+  const nc = nodeClassNum(node && node.nodeClass);
+  return nc === 2;
+}
+
+function nodeLabel(node) {
+  const base = (node && (node.displayName || node.browseName || node.nodeId)) || '';
+  return String(base);
+}
+
+function sortNodesByLabel(items) {
+  return (Array.isArray(items) ? items.slice() : []).sort((a, b) => {
+    return nodeLabel(a).localeCompare(nodeLabel(b), 'de', { sensitivity: 'base' });
+  });
+}
+
+function normNodeId(v) {
+  return String(v || '').trim().replace(/\s+/g, ' ');
+}
 
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 8000) {
   const controller = new AbortController();
@@ -330,6 +463,7 @@ function normalizeVariant(v) {
 function isFloatType(dtype) {
   if (!dtype) return false;
   const s = String(dtype).toLowerCase();
+  if (/\b(?:i=)?(?:10|11)\b/.test(s)) return true;
   if (/double|float|real|f32|f64|decimal/.test(s)) return true;
   return false;
 }
@@ -338,7 +472,8 @@ function isIntegerType(dtype) {
   if (!dtype) return false;
   const s = String(dtype).toLowerCase();
   if (s === 'i=3002' || s === '3002') return true;
-  if (/\b(u?int|int|sbyte|byte|word|dword|u?int8|u?int16|u?int32|u?int64|i=)\b/.test(s)) {
+  if (/\b(?:i=)?(?:2|3|4|5|6|7|8|9)\b/.test(s)) return true;
+  if (/\b(integer|unsignedinteger|signedinteger|u?int|u?int8|u?int16|u?int32|u?int64|sbyte|byte|word|dword|short|long)\b/.test(s)) {
     if (/double|float|real|f32|f64/.test(s)) return false;
     return true;
   }
@@ -358,6 +493,22 @@ function isDateType(dtype) {
   const s = String(dtype).toLowerCase();
   if (s === 'i=3008' || s === '3008') return true;
   if (/\b(date|utc|datetime|timestamp)\b/.test(s)) return true;
+  return false;
+}
+
+function isThresholdRelevantDataType(dtype) {
+  if (!dtype) return true;
+  const s = String(dtype).toLowerCase();
+  if (s.includes('boolean') || s.includes('string') || s.includes('date')) return false;
+  return true;
+}
+
+function isAlarmRelevantDataType(dtype) {
+  if (!dtype) return true;
+  const s = String(dtype).toLowerCase();
+  if (/bool|boolean|bit/.test(s)) return true;
+  if (isFloatType(s) || isIntegerType(s)) return true;
+  if (/string|char|text|date|time|utc|datetime|timestamp/.test(s)) return false;
   return false;
 }
 
@@ -520,8 +671,9 @@ async function renderAllLogpoints() {
         <th style="white-space:nowrap">Datentyp</th>
         <th style="white-space:nowrap">Einheit</th>
         <th style="white-space:nowrap">Erfassungsintervall</th>
-        <th style="white-space:nowrap">Störung</th>
+        <th style="white-space:nowrap">Ereignis</th>
         <th style="white-space:nowrap">Dezimalstellen</th>
+        <th style="white-space:nowrap">Änderungsschwelle</th>
         <th style="white-space:nowrap">Aktueller Wert</th>
         <th>Aktionen</th>
         <th class="col-nodeid">NodeId</th>
@@ -530,19 +682,25 @@ async function renderAllLogpoints() {
         const dp = Number(lp.decimals === undefined ? 2 : lp.decimals) || 2;
         const humanDt = humanizeDataType(lp.dataType || '');
         const decimalsDisabled = !isFloatType(lp.dataType || '');
+        const alarmDisabled = !isAlarmRelevantDataType(lp.dataType || '');
         const decimalsValue = decimalsDisabled ? 0 : dp;
+        const thresholdDisabled = !isThresholdRelevantDataType(lp.dataType || '');
+        const thresholdValue = Number(lp.changeThreshold);
+        const normalizedThreshold = Number.isFinite(thresholdValue) ? thresholdValue : 0.1;
 
         html += `<tr id="lp-${escapeHtml(lp.id)}" data-nodeid="${escapeHtml(lp.nodeId)}" data-conn="${escapeHtml(lp.connectionId)}" data-datatype="${escapeHtml(lp.dataType || '')}">
           <td class="col-displayname"><input data-lpid="${escapeHtml(lp.id)}" data-field="displayName" value="${escapeHtml(lp.displayName||lp.browseName||'')}" style="width:100%"></td>
           <td class="nowrap">${escapeHtml(humanDt)}</td>
           <td style="white-space:nowrap"><input data-lpid="${escapeHtml(lp.id)}" data-field="unit" value="${escapeHtml(lp.unit||'')}" style="width:6rem"></td>
           <td style="white-space:nowrap"><input data-lpid="${escapeHtml(lp.id)}" data-field="samplingIntervalMs" type="number" value="${escapeHtml(lp.samplingIntervalMs||1000)}" style="width:8rem"></td>
-          <td style="text-align:center; white-space:nowrap"><input type="checkbox" data-lpid="${escapeHtml(lp.id)}" data-field="isAlarm" ${lp.isAlarm ? 'checked' : ''}></td>
+          <td style="text-align:center; white-space:nowrap"><input type="checkbox" data-lpid="${escapeHtml(lp.id)}" data-field="isAlarm" ${lp.isAlarm ? 'checked' : ''} ${alarmDisabled ? 'disabled' : ''}></td>
           <td style="white-space:nowrap"><input data-lpid="${escapeHtml(lp.id)}" data-field="decimals" type="number" min="0" max="6" value="${escapeHtml(decimalsValue)}" style="width:4rem" ${decimalsDisabled ? 'disabled' : ''}></td>
+          <td style="white-space:nowrap"><input data-lpid="${escapeHtml(lp.id)}" data-field="changeThreshold" type="number" min="0" step="0.001" value="${escapeHtml(normalizedThreshold)}" style="width:6rem" ${thresholdDisabled ? 'disabled' : ''}></td>
           <td class="value-cell" data-valuecell="${escapeHtml(lp.id)}">--</td>
           <td class="actions">
             <button data-action="save" data-lpid="${escapeHtml(lp.id)}" data-icon="save" class="icon-btn" title="Speichern" aria-label="Speichern"></button>
             <button data-action="delete" data-lpid="${escapeHtml(lp.id)}" data-icon="delete" class="icon-btn" title="Löschen" aria-label="Löschen"></button>
+            <button data-action="archive" data-lpid="${escapeHtml(lp.id)}" data-conn="${escapeHtml(lp.connectionId)}" class="btn small" title="Archiv">Archiv</button>
           </td>
           <td class="col-nodeid">${escapeHtml(lp.nodeId)}</td>
         </tr>`;
@@ -568,6 +726,15 @@ async function renderAllLogpoints() {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         await renderAllLogpoints();
       } catch (e) { alert('Fehler beim Löschen: ' + e); console.error(e); }
+    }));
+
+    logpointsContainer.querySelectorAll('button[data-action="archive"]').forEach((b) => b.addEventListener('click', () => {
+      const id = b.getAttribute('data-lpid');
+      const conn = b.getAttribute('data-conn');
+      const qs = new URLSearchParams();
+      if (conn) qs.set('connectionId', conn);
+      if (id) qs.set('logpointId', id);
+      location.href = 'data-archive.html?' + qs.toString();
     }));
 
     await refreshDisplayedValues(true);
@@ -680,8 +847,7 @@ async function doBrowse() {
   if (!currentConn) return showGlobal('Keine Connection ausgewählt');
   if (browseResult) browseResult.innerText = 'Browsen...';
   const maxDepthVal = Number(browseMaxDepth && browseMaxDepth.value) || 4;
-  const maxNodesVal = Number(browseMaxNodes && browseMaxNodes.value) || 500;
-  const onlyVariables = !!(filterVariablesEl && filterVariablesEl.checked);
+  const maxNodesVal = Number(browseMaxNodes && browseMaxNodes.value) || 5000;
   const includeValue = true;
   let startNode = currentConn.startNodeId || 'ObjectsFolder';
   let namespaceVal = (namespaceFilterEl && namespaceFilterEl.value) ? namespaceFilterEl.value : '';
@@ -697,7 +863,6 @@ async function doBrowse() {
       maxNodes: maxNodesVal,
       includeValue: includeValue
     };
-    if (onlyVariables) body.nodeClass = 2;
     if (namespaceVal !== '') body.namespace = Number(namespaceVal);
 
     const r = await fetchWithTimeout(api('/browse'), {
@@ -719,32 +884,184 @@ async function doBrowse() {
 
 function renderBrowseNodes(nodes) {
   if (!nodes || nodes.length === 0) { if (browseResult) browseResult.innerText = '(keine nodes)'; return; }
-  const t = document.createElement('table');
-  t.innerHTML = `<thead><tr><th>#</th><th>Auswahl</th><th>NodeId</th><th>Anzeigename</th><th>Datentyp</th><th>Einheit</th><th>Erfassungsintervall in ms</th><th>Störung</th><th>Dezimalstellen</th><th>Wert</th></tr></thead>`;
-  const tb = document.createElement('tbody');
-  nodes.forEach((n,i) => {
-    const valRaw = n.value === undefined || n.value === null ? '' : n.value;
-    const dt = n.dataType || '';
-    const valDisplay = isTimeDataType(dt) && valRaw !== '' ? formatTimeMs(valRaw, 2) : (valRaw === '' ? '' : String(valRaw));
-    const displayNameVal = n.displayName || n.browseName || '';
+
+  // Frontend-safety dedupe: keep one entry per (parentNodeId, nodeId).
+  // Some servers expose the same target multiple times via different refs.
+  const deduped = [];
+  const seenEdgeKeys = new Set();
+  for (const n of nodes) {
+    const p = normNodeId(n && n.parentNodeId);
+    const id = normNodeId(n && n.nodeId);
+    if (!id) continue;
+    const key = `${p}=>${id}`;
+    if (seenEdgeKeys.has(key)) continue;
+    seenEdgeKeys.add(key);
+    deduped.push(n);
+  }
+  nodes = deduped;
+
+  nodes.forEach((n, i) => { n.__idx = i; });
+  const byId = new Map();
+  const byParent = new Map();
+  for (const n of nodes) {
+    byId.set(String(n.nodeId), n);
+  }
+  for (const n of nodes) {
+    const p = n.parentNodeId ? String(n.parentNodeId) : '';
+    if (!byParent.has(p)) byParent.set(p, []);
+    byParent.get(p).push(n);
+  }
+
+  for (const [k, arr] of byParent.entries()) {
+    byParent.set(k, sortNodesByLabel(arr));
+  }
+
+  const startKey = String((currentConn && currentConn.startNodeId) || 'ObjectsFolder');
+  let roots = byParent.get(startKey) || [];
+  if (!roots.length) {
+    roots = sortNodesByLabel(nodes.filter((n) => !n.parentNodeId || !byId.has(String(n.parentNodeId))));
+  }
+
+  const rootWrap = document.createElement('div');
+  const treeToolbar = document.createElement('div');
+  treeToolbar.className = 'browse-tree-toolbar muted-small';
+  treeToolbar.textContent = `Knoten: ${nodes.length} | Tipp: Unterordner über Pfeile aufklappen`;
+
+  const treeHead = document.createElement('div');
+  treeHead.className = 'browse-tree-head';
+  treeHead.innerHTML = `
+    <span></span>
+    <span></span>
+    <span></span>
+    <span>Name</span>
+    <span>NodeId / Datentyp</span>
+    <span class="browse-tree-head-controls">
+      <span>Anzeigename</span>
+      <span>Einheit</span>
+      <span>Intervall</span>
+      <span>Ereignis</span>
+      <span>Dez.</span>
+      <span>Wert</span>
+    </span>
+  `;
+
+  const tree = document.createElement('div');
+  tree.className = 'browse-tree';
+
+  const buildNode = (node, level = 0) => {
+    const idx = Number(node.__idx);
+    const children = byParent.get(String(node.nodeId)) || [];
+    const hasChildren = children.length > 0;
+    const variable = isVariableNode(node);
+    const folderLike = hasChildren || !variable;
+    const dt = node.dataType || '';
+    const alarmDisabled = !isAlarmRelevantDataType(dt);
     const dtText = humanizeDataType(dt);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="width:3rem">${i+1}</td>
-      <td style="width:3rem"><input type="checkbox" data-idx="${i}"></td>
-      <td style="font-family:monospace">${escapeHtml(n.nodeId)}</td>
-      <td><input data-displayname idx="${i}" type="text" value="${escapeHtml(displayNameVal)}"></td>
-      <td class="nowrap">${escapeHtml(dtText)}</td>
-      <td><input data-unit idx="${i}" type="text"></td>
-      <td><input data-interval type="number" idx="${i}" value="1000"></td>
-      <td style="text-align:center"><input data-isalarm idx="${i}" type="checkbox"></td>
-      <td><input data-decimals type="number" idx="${i}" min="0" max="6" value="${isFloatType(dt) ? 2 : 0}" style="width:4rem" ${isFloatType(dt) ? '' : 'disabled'}></td>
-      <td style="font-family:monospace">${escapeHtml(String(valDisplay))}</td>
-    `;
-    tb.appendChild(tr);
+    const valRaw = node.value === undefined || node.value === null ? '' : node.value;
+    const valDisplay = isTimeDataType(dt) && valRaw !== '' ? formatTimeMs(valRaw, 2) : (valRaw === '' ? '' : String(valRaw));
+    const row = document.createElement('div');
+    row.className = 'browse-node-row' + (variable ? ' is-variable' : ' is-non-variable') + (folderLike ? ' is-folder' : '');
+    row.style.setProperty('--tree-level', String(level));
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'browse-toggle' + (hasChildren ? '' : ' empty');
+    toggle.textContent = hasChildren ? '▾' : '▸';
+    if (!hasChildren) toggle.disabled = true;
+
+    const pick = document.createElement('input');
+    pick.type = 'checkbox';
+    pick.setAttribute('data-browse-pick', '1');
+    pick.setAttribute('data-idx', String(idx));
+    const canPick = variable || hasChildren;
+    pick.disabled = !canPick;
+
+    const label = document.createElement('span');
+    label.className = 'browse-node-label';
+    label.title = nodeLabel(node);
+    label.textContent = nodeLabel(node);
+
+    const meta = document.createElement('span');
+    meta.className = 'browse-node-meta';
+    meta.textContent = `${node.nodeId || ''}${dtText ? ' | ' + dtText : ''}`;
+
+    const icon = document.createElement('span');
+    icon.className = 'browse-node-icon';
+    icon.textContent = folderLike ? '[+]' : '[ ]';
+
+    row.appendChild(toggle);
+    row.appendChild(icon);
+    row.appendChild(pick);
+    row.appendChild(label);
+    row.appendChild(meta);
+
+    if (variable) {
+      const controls = document.createElement('span');
+      controls.className = 'browse-node-controls';
+      const displayNameVal = node.displayName || node.browseName || '';
+      controls.innerHTML = `
+        <input data-displayname idx="${idx}" type="text" value="${escapeHtml(displayNameVal)}" title="Anzeigename">
+        <input data-unit idx="${idx}" type="text" title="Einheit" placeholder="Einheit">
+        <input data-interval type="number" idx="${idx}" value="1000" title="Erfassungsintervall (ms)">
+        <label class="muted-small" title="Ereignis"><input data-isalarm idx="${idx}" type="checkbox" ${alarmDisabled ? 'disabled' : ''}>Ereignis</label>
+        <input data-decimals type="number" idx="${idx}" min="0" max="6" value="${isFloatType(dt) ? 2 : 0}" title="Dezimalstellen" ${isFloatType(dt) ? '' : 'disabled'}>
+        <span class="muted-small" title="Wert">${escapeHtml(String(valDisplay))}</span>
+      `;
+      row.appendChild(controls);
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(row);
+
+    if (hasChildren) {
+      const childWrap = document.createElement('div');
+      childWrap.className = 'browse-children';
+      const expandedInitially = level < 1;
+      childWrap.style.display = expandedInitially ? '' : 'none';
+      toggle.textContent = expandedInitially ? '▾' : '▸';
+      for (const ch of children) {
+        childWrap.appendChild(buildNode(ch, level + 1));
+      }
+      wrapper.appendChild(childWrap);
+
+      toggle.addEventListener('click', () => {
+        const hidden = childWrap.style.display === 'none';
+        childWrap.style.display = hidden ? '' : 'none';
+        toggle.textContent = hidden ? '▾' : '▸';
+      });
+
+      if (!variable) {
+        pick.addEventListener('change', () => {
+          const checked = !!pick.checked;
+          childWrap.querySelectorAll('input[data-browse-pick][data-idx]').forEach((cb) => {
+            if (!cb.disabled) cb.checked = checked;
+          });
+        });
+      }
+    }
+
+    return wrapper;
+  };
+
+  roots.forEach((n) => tree.appendChild(buildNode(n, 0)));
+  rootWrap.appendChild(treeToolbar);
+  rootWrap.appendChild(treeHead);
+  rootWrap.appendChild(tree);
+  if (browseResult) {
+    browseResult.innerHTML = '';
+    browseResult.appendChild(rootWrap);
+  }
+}
+
+function setBrowseTreeExpanded(expanded) {
+  if (!browseResult) return;
+  browseResult.querySelectorAll('.browse-children').forEach((el) => {
+    el.style.display = expanded ? '' : 'none';
   });
-  t.appendChild(tb);
-  if (browseResult) { browseResult.innerHTML = ''; browseResult.appendChild(t); }
+  browseResult.querySelectorAll('.browse-toggle').forEach((btn) => {
+    if (btn.classList.contains('empty')) return;
+    btn.textContent = expanded ? '▾' : '▸';
+  });
 }
 
 /* -----------------------------
@@ -1061,6 +1378,10 @@ btnOpenImport && btnOpenImport.addEventListener('click', () => {
   importCandidates = [];
 });
 
+importClose && importClose.addEventListener('click', () => {
+  importModal.style.display = 'none';
+});
+
 importSelectAll && importSelectAll.addEventListener('click', () => {
   importResult.querySelectorAll('input[type=checkbox][data-idx]').forEach(cb => cb.checked = true);
 });
@@ -1174,7 +1495,8 @@ function collectSelectedImportItems() {
       unit: '',
       samplingIntervalMs: 1000,
       isAlarm: false,
-      decimals
+      decimals,
+      changeThreshold: 0.1
     });
   }
   return selected;
@@ -1291,13 +1613,14 @@ replaceConfirmBtn && replaceConfirmBtn.addEventListener('click', async () => {
 /* Remaining functions: importSelectedFromBrowse, save, manual add, events wiring, init */
 
 async function importSelectedFromBrowse() {
-  const checks = browseResult.querySelectorAll('input[type=checkbox][data-idx]');
+  const checks = browseResult.querySelectorAll('input[type=checkbox][data-browse-pick][data-idx]');
   const selected = [];
   checks.forEach(cb => {
     if (cb.checked) {
       const i = Number(cb.getAttribute('data-idx'));
       const n = browseNodes[i];
       if (!n) return;
+      if (!isVariableNode(n)) return;
       const unit = (browseResult.querySelector(`input[data-unit][idx="${i}"]`) || {}).value || '';
       const interval = Number((browseResult.querySelector(`input[data-interval][idx="${i}"]`) || {}).value) || 1000;
       const isAlarm = !!(browseResult.querySelector(`input[data-isalarm][idx="${i}"]`) || {}).checked;
@@ -1316,7 +1639,8 @@ async function importSelectedFromBrowse() {
         unit,
         samplingIntervalMs: interval,
         isAlarm,
-        decimals
+        decimals,
+        changeThreshold: 0.1
       });
     }
   });
@@ -1375,6 +1699,7 @@ async function saveLpFromInputs(id) {
   const intEl = document.querySelector(`input[data-lpid="${id}"][data-field="samplingIntervalMs"]`);
   const alarmEl = document.querySelector(`input[data-lpid="${id}"][data-field="isAlarm"]`);
   const decEl = document.querySelector(`input[data-lpid="${id}"][data-field="decimals"]`);
+  const thresholdEl = document.querySelector(`input[data-lpid="${id}"][data-field="changeThreshold"]`);
   const patch = {
     displayName: displayEl ? displayEl.value : '',
     unit: unitEl ? unitEl.value : '',
@@ -1383,6 +1708,10 @@ async function saveLpFromInputs(id) {
   };
   if (decEl && !decEl.disabled) {
     patch.decimals = Number(decEl.value)||2;
+  }
+  if (thresholdEl && !thresholdEl.disabled) {
+    const t = Number(thresholdEl.value);
+    patch.changeThreshold = Number.isFinite(t) && t >= 0 ? t : 0.1;
   }
 
   try {
@@ -1406,6 +1735,7 @@ async function addManualEntry() {
   const intervalEl = document.getElementById('manualInterval');
   const isAlarmEl = document.getElementById('manualIsAlarm');
   const decimalsEl = document.getElementById('manualDecimals');
+  const thresholdEl = document.getElementById('manualThreshold');
 
   const nodeId = nodeIdEl ? nodeIdEl.value.trim() : '';
   const displayName = displayNameEl ? displayNameEl.value.trim() : '';
@@ -1413,6 +1743,8 @@ async function addManualEntry() {
   const interval = Number(intervalEl ? intervalEl.value : 1000) || 1000;
   const isAlarm = !!(isAlarmEl && isAlarmEl.checked);
   const decimals = Number(decimalsEl && !decimalsEl.disabled ? decimalsEl.value : 0) || 0;
+  const changeThresholdRaw = Number(thresholdEl ? thresholdEl.value : 0.1);
+  const changeThreshold = Number.isFinite(changeThresholdRaw) && changeThresholdRaw >= 0 ? changeThresholdRaw : 0.1;
 
   if (!nodeId) return alert('NodeId benötigt');
   if (!connectionId) return alert('Bitte Connection wählen oder ConnectionId/Endpoint im Select eintragen');
@@ -1420,7 +1752,7 @@ async function addManualEntry() {
     const r = await fetchWithTimeout(api('/logpoints'), {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ connectionId: connectionId, nodeId, displayName, unit, samplingIntervalMs: interval, isAlarm, decimals })
+      body: JSON.stringify({ connectionId: connectionId, nodeId, displayName, unit, samplingIntervalMs: interval, isAlarm, decimals, changeThreshold })
     }, 8000);
     if (!r.ok) {
       const txt = await r.text();
@@ -1441,9 +1773,21 @@ btnLoadLogpoints && btnLoadLogpoints.addEventListener('click', renderAllLogpoint
 btnRefreshValues && btnRefreshValues.addEventListener('click', async () => { await refreshDisplayedValues(); });
 browseDo && browseDo.addEventListener('click', doBrowse);
 browseClose && browseClose.addEventListener('click', () => { if (browseModal) browseModal.style.display='none'; });
-browseSelectAll && browseSelectAll.addEventListener('click', () => { if (browseResult) browseResult.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=true); });
-browseUnselectAll && browseUnselectAll.addEventListener('click', () => { if (browseResult) browseResult.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false); });
+browseSelectAll && browseSelectAll.addEventListener('click', () => {
+  if (!browseResult) return;
+  browseResult.querySelectorAll('input[type=checkbox][data-browse-pick][data-idx]').forEach((c) => {
+    const i = Number(c.getAttribute('data-idx'));
+    const n = browseNodes[i];
+    if (!c.disabled && n && isVariableNode(n)) c.checked = true;
+  });
+});
+browseUnselectAll && browseUnselectAll.addEventListener('click', () => {
+  if (!browseResult) return;
+  browseResult.querySelectorAll('input[type=checkbox][data-browse-pick][data-idx]').forEach((c) => { c.checked = false; });
+});
 browseImport && browseImport.addEventListener('click', importSelectedFromBrowse);
+browseExpandAll && browseExpandAll.addEventListener('click', () => setBrowseTreeExpanded(true));
+browseCollapseAll && browseCollapseAll.addEventListener('click', () => setBrowseTreeExpanded(false));
 document.getElementById('btnAddManual') && document.getElementById('btnAddManual').addEventListener('click', addManualEntry);
 
 /* Prevent concurrent renders and initial load */

@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ereignisprotokolle</title>
+  <link rel="stylesheet" href="/_shell.css">
+  <script src="/_nav-loader.js" defer></script>
+  <script src="/_theme-loader.js" defer></script>
+  <style>
+    .page-wrapper { max-width: 1500px; margin: 1rem auto; }
+    .lead { color: var(--text-muted); margin-top: .25rem; }
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(360px, 1fr) minmax(380px, 1fr);
+      gap: .85rem;
+      align-items: start;
+      margin-top: .9rem;
+    }
+    .list-box {
+      border: 1px solid #d9e3f2;
+      border-radius: 8px;
+      max-height: 72vh;
+      overflow: auto;
+      background: #fff;
+    }
+    .event-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: .45rem;
+      padding: .5rem .55rem;
+      border-bottom: 1px solid #eef2f8;
+      cursor: pointer;
+    }
+    .event-item:last-child { border-bottom: none; }
+    .event-item.active { background: rgba(43,111,179,0.1); }
+    .badge {
+      border-radius: 999px;
+      padding: .1rem .45rem;
+      font-size: .75rem;
+      border: 1px solid #d2dcec;
+      background: #f6f8fc;
+      color: #41536e;
+      white-space: nowrap;
+    }
+    .badge.on { background: #eaf8ef; border-color: #b8e4c6; color: #1e6b3d; }
+    .badge.off { background: #fff0f0; border-color: #efc0c0; color: #a31d1d; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .form-grid > label { display: flex; flex-direction: column; gap: .28rem; font-size: .9rem; }
+    .wide { grid-column: 1 / -1; }
+    textarea { min-height: 5.6rem; resize: vertical; }
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      border: 1px solid #cdd8ea;
+      border-radius: 6px;
+      padding: .36rem .45rem;
+      font-size: .9rem;
+      width: 100%;
+      background: #fff;
+      color: #1f2a3a;
+    }
+    .inline { display: flex; gap: .55rem; align-items: center; flex-wrap: wrap; }
+    .checklist {
+      border: 1px solid #dfe5f1;
+      border-radius: 6px;
+      max-height: 10.5rem;
+      overflow: auto;
+      padding: .35rem;
+      background: #fff;
+    }
+    .check-item { display: flex; gap: .4rem; align-items: center; padding: .2rem .15rem; }
+    .action-row { display: flex; gap: .5rem; align-items: center; margin-top: .72rem; flex-wrap: wrap; }
+    .muted-small { color: var(--text-muted); font-size: .9rem; }
+
+    .events-toolbar { display:flex; gap:.5rem; align-items:center; margin-bottom:.45rem; flex-wrap:wrap; }
+    .events-table-wrap { max-height: 31vh; overflow: auto; border: 1px solid rgba(0,0,0,0.04); border-radius: 6px; }
+    .events-table { margin-top: 0; }
+    .events-table thead th { position: sticky; top: 0; z-index: 1; }
+
+    .protocol-sheet {
+      margin-top: .7rem;
+      border: 2px solid #c2d3ea;
+      border-radius: 8px;
+      padding: .75rem;
+      background:
+        linear-gradient(180deg, rgba(246,250,255,.95), #fff 35%),
+        repeating-linear-gradient(180deg, transparent, transparent 22px, rgba(57,98,156,.04) 22px, rgba(57,98,156,.04) 23px);
+      box-shadow: inset 0 1px 0 #fff;
+      max-height: 38vh;
+      overflow: auto;
+    }
+    .protocol-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: .6rem;
+      border-bottom: 1px solid #9fb7d8;
+      margin-bottom: .5rem;
+      padding-bottom: .32rem;
+    }
+    .protocol-title { margin: 0; font-size: 1.04rem; color: #163a63; }
+    .protocol-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .9rem; margin-bottom: .5rem; }
+    .protocol-label { font-weight: 600; color: #26456b; }
+    .protocol-block { margin-top: .45rem; }
+    .protocol-block h4 { margin: 0 0 .2rem 0; color: #22456f; }
+
+    .trend-wrap {
+      border: 1px solid #d4dfef;
+      border-radius: 6px;
+      background: #fff;
+      padding: .45rem;
+      margin-top: .38rem;
+    }
+    .trend-svg {
+      width: 100%;
+      height: 190px;
+      display: block;
+      border: 1px solid #e8eef7;
+      border-radius: 4px;
+      background: linear-gradient(180deg, #fff, #fbfdff);
+    }
+    .trend-legend { display: flex; flex-wrap: wrap; gap: .35rem .7rem; margin-top: .3rem; }
+    .legend-item { font-size: .82rem; color: #2d3f57; display: inline-flex; align-items: center; gap: .28rem; }
+    .sw { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+    .trend-values { margin-top: .45rem; border-top: 1px solid #e8eef7; padding-top: .4rem; }
+    .trend-values table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .trend-values th, .trend-values td { border: 1px solid #edf2fa; padding: .25rem .3rem; text-align: left; }
+    .trend-values th { background: #f4f8ff; color: #2d4568; font-weight: 600; }
+
+    @media (max-width: 1240px) {
+      .workspace-grid { grid-template-columns: 1fr; }
+    }
+    body.observe-mode .config-panel {
+      display:none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav id="nav-placeholder" class="side-nav" aria-label="Seitennavigation"></nav>
+    <main class="main-area">
+      <div class="page-wrapper">
+        <h1 style="margin:.2rem 0;">Ereignisprotokolle</h1>
+        <div class="lead">Konfiguration, Verlaufstrend und langfristige Dokumentation für als Ereignis markierte Logpoints.</div>
+
+        <div class="workspace-grid">
+          <section class="panel">
+            <h3 style="margin:.1rem 0 .4rem 0;">Ereignis-Logpoints</h3>
+            <div class="muted-small" id="rulesCountInfo">Lade…</div>
+            <div id="rulesList" class="list-box" style="margin-top:.45rem;"></div>
+          </section>
+
+          <section class="panel config-panel">
+            <h3 style="margin:.1rem 0 .4rem 0;">Ereigniskonfiguration</h3>
+            <div id="cfgEmpty" class="muted-small">Bitte links einen Ereignis-Logpoint auswählen.</div>
+            <form id="ruleForm" style="display:none;">
+              <div class="form-grid">
+                <label class="wide">Ereignisname
+                  <input id="fName" type="text" placeholder="z. B. Druckabfall Linie 1">
+                </label>
+
+                <label>Für Protokolle verwenden
+                  <span class="inline">
+                    <input id="fEnabled" type="checkbox"> Aktiv
+                  </span>
+                </label>
+
+                <label>Aktivierungsverzögerung (s)
+                  <input id="fDelaySec" type="number" min="0" step="1" value="0">
+                </label>
+
+                <label>Zeitbereich Trend vor Ereignis (min)
+                  <input id="fTrendWindowMin" type="number" min="1" max="1440" step="1" value="10">
+                </label>
+
+                <label class="wide">Ereignisursache (Template)
+                  <textarea id="fCause" placeholder="Ausgelöst durch {{ereignisname}} (Wert: {{wert}}) um {{zeit}}."></textarea>
+                </label>
+
+                <label class="wide">Hinweise (editierbar, je Zeile ein Hinweis)
+                  <textarea id="fHints" placeholder="Anlagezustand prüfen&#10;Ursache dokumentieren&#10;Maßnahmen einleiten"></textarea>
+                </label>
+
+                <label id="boolBlock" class="wide" style="display:none;">Bool-Regel
+                  <span class="inline">
+                    <label><input type="radio" name="boolAlarmValue" value="true"> true = Alarm</label>
+                    <label><input type="radio" name="boolAlarmValue" value="false"> false = Alarm</label>
+                  </span>
+                </label>
+
+                <label id="numMinBlock">Min-Limit
+                  <span class="inline">
+                    <input id="fMinEnabled" type="checkbox"> aktiv
+                    <input id="fMinLimit" type="number" step="any" placeholder="z. B. 10">
+                  </span>
+                </label>
+
+                <label id="numMaxBlock">Max-Limit
+                  <span class="inline">
+                    <input id="fMaxEnabled" type="checkbox"> aktiv
+                    <input id="fMaxLimit" type="number" step="any" placeholder="z. B. 90">
+                  </span>
+                </label>
+
+                <label class="wide">Zugeordnete Logpoints (Ursachenkontext)
+                  <div id="relatedList" class="checklist"></div>
+                </label>
+              </div>
+
+              <div class="action-row">
+                <button id="saveRuleBtn" type="submit" class="btn btn--primary">Konfiguration speichern</button>
+                <button id="previewBtn" type="button" class="btn">Protokollvorschau aktualisieren</button>
+                <span id="saveMsg" class="muted-small"></span>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <h3 style="margin:.1rem 0 .4rem 0;">Protokolle</h3>
+            <div class="events-toolbar">
+              <button id="refreshEventsBtn" class="btn small" type="button">Liste aktualisieren</button>
+              <label class="muted-small">Status
+                <select id="eventsStatusFilter">
+                  <option value="">Alle</option>
+                  <option value="active">Aktiv</option>
+                  <option value="resolved">Beendet</option>
+                </select>
+              </label>
+              <label class="muted-small">Limit
+                <input id="eventsLimit" type="number" min="1" max="500" value="200" style="width:6rem;">
+              </label>
+            </div>
+
+            <div class="events-table-wrap">
+              <table class="events-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Status</th>
+                    <th>Ereignis</th>
+                    <th>Auslösung</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="eventsTbody"></tbody>
+              </table>
+            </div>
+
+            <h3 style="margin:.72rem 0 .4rem 0;">Ereignisprotokoll-Vorschau</h3>
+            <div id="previewBox" class="protocol-sheet muted-small">Noch keine Vorschau vorhanden.</div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<script>
+const api = (p) => '/api/opcua' + p;
+const colors = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd', '#17becf', '#8c564b'];
+
+const rulesListEl = document.getElementById('rulesList');
+const rulesCountInfoEl = document.getElementById('rulesCountInfo');
+const cfgEmptyEl = document.getElementById('cfgEmpty');
+const ruleForm = document.getElementById('ruleForm');
+
+const fName = document.getElementById('fName');
+const fEnabled = document.getElementById('fEnabled');
+const fDelaySec = document.getElementById('fDelaySec');
+const fTrendWindowMin = document.getElementById('fTrendWindowMin');
+const fCause = document.getElementById('fCause');
+const fHints = document.getElementById('fHints');
+const fMinEnabled = document.getElementById('fMinEnabled');
+const fMinLimit = document.getElementById('fMinLimit');
+const fMaxEnabled = document.getElementById('fMaxEnabled');
+const fMaxLimit = document.getElementById('fMaxLimit');
+const relatedList = document.getElementById('relatedList');
+const boolBlock = document.getElementById('boolBlock');
+const numMinBlock = document.getElementById('numMinBlock');
+const numMaxBlock = document.getElementById('numMaxBlock');
+const saveMsg = document.getElementById('saveMsg');
+const previewBox = document.getElementById('previewBox');
+
+const eventsTbody = document.getElementById('eventsTbody');
+const refreshEventsBtn = document.getElementById('refreshEventsBtn');
+const eventsStatusFilter = document.getElementById('eventsStatusFilter');
+const eventsLimit = document.getElementById('eventsLimit');
+
+let rulesData = [];
+let selectedLogpointId = null;
+let currentRoleLevel = 0;
+
+async function initRoleUi() {
+  try {
+    const res = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+    const json = await res.json().catch(() => null);
+    const user = json && json.user ? json.user : null;
+    currentRoleLevel = Number(user && user.roleLevel) || 0;
+  } catch (_) {
+    currentRoleLevel = 0;
+  }
+  document.body.classList.toggle('observe-mode', currentRoleLevel === 2);
+}
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getBoolAlarmValueFromUi() {
+  const checked = Array.from(document.querySelectorAll('input[name="boolAlarmValue"]')).find((x) => x.checked);
+  return checked ? checked.value === 'true' : true;
+}
+
+function setBoolAlarmValueInUi(v) {
+  const want = v ? 'true' : 'false';
+  document.querySelectorAll('input[name="boolAlarmValue"]').forEach((el) => {
+    el.checked = el.value === want;
+  });
+}
+
+function findCurrentEntry() {
+  return rulesData.find((x) => Number(x.logpoint && x.logpoint.id) === Number(selectedLogpointId)) || null;
+}
+
+function renderRulesList() {
+  if (!Array.isArray(rulesData) || !rulesData.length) {
+    rulesCountInfoEl.textContent = 'Keine als Ereignis markierten Logpoints vorhanden.';
+    rulesListEl.innerHTML = '<div class="muted-small" style="padding:.6rem;">Hinweis: In der Logpoint-Seite zuerst „Ereignis“ markieren.</div>';
+    return;
+  }
+
+  const enabledCount = rulesData.filter((x) => x.rule && x.rule.enabled).length;
+  rulesCountInfoEl.textContent = `${rulesData.length} verfügbar, ${enabledCount} aktiv für Protokolle.`;
+
+  rulesListEl.innerHTML = rulesData.map((entry) => {
+    const lp = entry.logpoint || {};
+    const rule = entry.rule || {};
+    const id = Number(lp.id);
+    const active = id === Number(selectedLogpointId);
+    const title = lp.displayName || lp.browseName || lp.nodeId || `Logpoint ${id}`;
+    return `
+      <div class="event-item ${active ? 'active' : ''}" data-logpoint-id="${id}">
+        <span class="badge ${rule.enabled ? 'on' : 'off'}">${rule.enabled ? 'Aktiv' : 'Inaktiv'}</span>
+        <div>
+          <div style="font-weight:600;">${esc(title)}</div>
+          <div class="muted-small">ID ${id} | ${esc(lp.dataType || '-')}</div>
+        </div>
+        <span class="badge">${esc(rule.mode || '-')}</span>
+      </div>
+    `;
+  }).join('');
+
+  rulesListEl.querySelectorAll('.event-item').forEach((row) => {
+    row.addEventListener('click', () => {
+      selectedLogpointId = Number(row.getAttribute('data-logpoint-id'));
+      renderRulesList();
+      renderFormForSelection();
+      if (currentRoleLevel === 2) return;
+      fetchPreview().catch((err) => {
+        previewBox.innerHTML = `<div class="muted-small">Fehler bei Vorschau: ${esc(err.message || err)}</div>`;
+      });
+    });
+  });
+}
+
+function renderRelatedChecklist(entry) {
+  const relatedConfigured = new Set((entry.rule && entry.rule.relatedLogpointIds) || []);
+  const choices = Array.isArray(entry.relatedChoices) ? entry.relatedChoices : [];
+  if (!choices.length) {
+    relatedList.innerHTML = '<div class="muted-small">Keine weiteren Logpoints vorhanden.</div>';
+    return;
+  }
+
+  relatedList.innerHTML = choices.map((c) => {
+    const cid = Number(c.id);
+    const checked = relatedConfigured.has(cid) ? 'checked' : '';
+    return `
+      <label class="check-item">
+        <input type="checkbox" class="rel-cb" value="${cid}" ${checked}>
+        <span>${esc(c.name || `Logpoint ${cid}`)}</span>
+        <span class="muted-small">(ID ${cid} | ${esc(c.dataType || '-')})</span>
+      </label>
+    `;
+  }).join('');
+}
+
+function renderFormForSelection() {
+  const entry = findCurrentEntry();
+  if (!entry) {
+    cfgEmptyEl.style.display = '';
+    ruleForm.style.display = 'none';
+    return;
+  }
+
+  cfgEmptyEl.style.display = 'none';
+  ruleForm.style.display = '';
+  saveMsg.textContent = '';
+
+  const lp = entry.logpoint || {};
+  const rule = entry.rule || {};
+  const isBool = String(lp.dataType || '').toLowerCase().includes('bool');
+
+  fName.value = rule.name || lp.displayName || lp.browseName || '';
+  fEnabled.checked = !!rule.enabled;
+  fDelaySec.value = String(Math.max(0, Math.round((Number(rule.activationDelayMs || 0)) / 1000)));
+  fTrendWindowMin.value = String(Math.max(1, Math.round((Number(rule.trendWindowMs || 600000)) / 60000)));
+  fCause.value = rule.causeTemplate || 'Ausgelöst durch {{ereignisname}} (Wert: {{wert}}).';
+  fHints.value = rule.hintsTemplate || 'Anlagezustand prüfen\nUrsache dokumentieren\nMaßnahmen einleiten';
+
+  if (isBool) {
+    boolBlock.style.display = '';
+    numMinBlock.style.display = 'none';
+    numMaxBlock.style.display = 'none';
+    setBoolAlarmValueInUi(!!rule.boolAlarmValue);
+  } else {
+    boolBlock.style.display = 'none';
+    numMinBlock.style.display = '';
+    numMaxBlock.style.display = '';
+    fMinEnabled.checked = !!rule.minEnabled;
+    fMinLimit.value = rule.minLimit === null || rule.minLimit === undefined ? '' : String(rule.minLimit);
+    fMaxEnabled.checked = !!rule.maxEnabled;
+    fMaxLimit.value = rule.maxLimit === null || rule.maxLimit === undefined ? '' : String(rule.maxLimit);
+  }
+
+  renderRelatedChecklist(entry);
+}
+
+function buildRulePayloadFromUi() {
+  const entry = findCurrentEntry();
+  if (!entry) return null;
+  const lp = entry.logpoint || {};
+  const isBool = String(lp.dataType || '').toLowerCase().includes('bool');
+
+  const relatedIds = Array.from(relatedList.querySelectorAll('.rel-cb:checked'))
+    .map((cb) => Number(cb.value))
+    .filter((n) => Number.isInteger(n) && n > 0);
+
+  return {
+    enabled: !!fEnabled.checked,
+    activationDelayMs: Math.max(0, Math.floor(Number(fDelaySec.value || 0) * 1000)),
+    trendWindowMs: Math.max(60_000, Math.floor(Number(fTrendWindowMin.value || 10) * 60_000)),
+    name: String(fName.value || '').trim(),
+    causeTemplate: String(fCause.value || '').trim(),
+    hintsTemplate: String(fHints.value || '').trim(),
+    relatedLogpointIds: relatedIds,
+    mode: isBool ? 'boolean' : 'numeric',
+    boolAlarmValue: isBool ? getBoolAlarmValueFromUi() : undefined,
+    minEnabled: isBool ? undefined : !!fMinEnabled.checked,
+    minLimit: isBool ? undefined : (String(fMinLimit.value).trim() === '' ? null : Number(fMinLimit.value)),
+    maxEnabled: isBool ? undefined : !!fMaxEnabled.checked,
+    maxLimit: isBool ? undefined : (String(fMaxLimit.value).trim() === '' ? null : Number(fMaxLimit.value))
+  };
+}
+
+async function loadRules() {
+  const res = await fetch(api('/disturbances/rules'));
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || ('HTTP ' + res.status));
+
+  rulesData = Array.isArray(json) ? json : [];
+  if (!selectedLogpointId && rulesData.length) {
+    selectedLogpointId = Number(rulesData[0].logpoint && rulesData[0].logpoint.id);
+  }
+  if (selectedLogpointId && !rulesData.some((x) => Number(x.logpoint && x.logpoint.id) === Number(selectedLogpointId))) {
+    selectedLogpointId = rulesData.length ? Number(rulesData[0].logpoint && rulesData[0].logpoint.id) : null;
+  }
+
+  renderRulesList();
+  renderFormForSelection();
+}
+
+function buildTrendSvg(trend) {
+  const seriesInput = Array.isArray(trend && trend.series) ? trend.series.filter((s) => Array.isArray(s.points) && s.points.length) : [];
+  if (!seriesInput.length) {
+    return '<div class="muted-small">Keine Trenddaten im gewählten Zeitbereich vorhanden.</div>';
+  }
+
+  const normalizePoint = (p, dataType) => {
+    const raw = p && Object.prototype.hasOwnProperty.call(p, 'raw') ? p.raw : (p ? p.value : null);
+    const rawStr = String(raw === null || raw === undefined ? '' : raw).trim();
+    const rawLower = rawStr.toLowerCase();
+    const boolByType = /bool|boolean|bit/.test(String(dataType || '').toLowerCase());
+
+    if (raw === true || rawLower === 'true' || rawLower === 'wahr' || rawLower === 'on' || rawLower === 'ein' || rawLower === '1') {
+      return { ok: true, value: 1, display: 'true', isBoolean: true };
+    }
+    if (raw === false || rawLower === 'false' || rawLower === 'falsch' || rawLower === 'off' || rawLower === 'aus' || rawLower === '0') {
+      return { ok: true, value: 0, display: 'false', isBoolean: true };
+    }
+
+    const n = Number(p && p.value);
+    if (Number.isFinite(n)) {
+      if (boolByType) {
+        return { ok: true, value: n >= 0.5 ? 1 : 0, display: n >= 0.5 ? 'true' : 'false', isBoolean: true };
+      }
+      return { ok: true, value: n, display: '', isBoolean: false };
+    }
+
+    if (boolByType) return { ok: false };
+    const fallback = Number(String(raw).replace(',', '.'));
+    if (Number.isFinite(fallback)) return { ok: true, value: fallback, display: '', isBoolean: false };
+    return { ok: false };
+  };
+
+  const prepared = [];
+  for (const s of seriesInput) {
+    const pts = (s.points || [])
+      .map((p) => {
+        const ts = Number(p && p.ts);
+        if (!Number.isFinite(ts)) return null;
+        const norm = normalizePoint(p, s.dataType);
+        if (!norm.ok) return null;
+        return { ts, value: norm.value, display: norm.display, isBoolean: !!norm.isBoolean };
+      })
+      .filter((p) => !!p)
+      .sort((a, b) => a.ts - b.ts);
+    if (!pts.length) continue;
+    prepared.push({
+      logpointId: Number(s.logpointId),
+      name: s.name || `Logpoint ${s.logpointId}`,
+      unit: s.unit || '',
+      dataType: s.dataType || '',
+      points: pts,
+      isBooleanSeries: pts.every((p) => p.isBoolean)
+    });
+  }
+
+  if (!prepared.length) {
+    return '<div class="muted-small">Trend enthält keine darstellbaren Werte.</div>';
+  }
+
+  const width = 1000;
+  const height = 260;
+  const padR = 12;
+  const padT = 12;
+  const padB = 26;
+
+  const all = prepared.flatMap((s) => s.points.map((p) => ({ ts: p.ts, v: p.value })));
+  const dataMinTs = Math.min(...all.map((x) => x.ts));
+  const dataMaxTs = Math.max(...all.map((x) => x.ts));
+  let minTs = Number(trend && trend.fromTs);
+  let maxTs = Number(trend && trend.toTs);
+  if (!Number.isFinite(minTs)) minTs = dataMinTs;
+  if (!Number.isFinite(maxTs)) maxTs = dataMaxTs;
+  if (!(maxTs > minTs)) {
+    minTs = dataMinTs;
+    maxTs = dataMaxTs;
+  }
+  const boolSeries = prepared.filter((s) => s.isBooleanSeries);
+  const numSeries = prepared.filter((s) => !s.isBooleanSeries);
+
+  const numericSeriesStats = new Map();
+  for (const s of numSeries) {
+    let sMin = Math.min(...s.points.map((p) => p.value));
+    let sMax = Math.max(...s.points.map((p) => p.value));
+    if (!(sMax > sMin)) {
+      const bump = Math.max(1, Math.abs(sMax) * 0.02);
+      sMin -= bump;
+      sMax += bump;
+    }
+    numericSeriesStats.set(String(s.logpointId), { min: sMin, max: sMax, lpIds: [String(s.logpointId)] });
+  }
+
+  const axisDefs = [];
+  const AXIS_MAG_RATIO_SPLIT = 80;
+  const AXIS_SPAN_RATIO_SPLIT = 30;
+  for (const [lpId, stat] of numericSeriesStats.entries()) {
+    let target = null;
+    for (const axis of axisDefs) {
+      const axisMag = Math.max(Math.abs(axis.min), Math.abs(axis.max), 1e-9);
+      const statMag = Math.max(Math.abs(stat.min), Math.abs(stat.max), 1e-9);
+      const magRatio = Math.max(axisMag, statMag) / Math.min(axisMag, statMag);
+      const axisSpan = Math.max(1e-9, axis.max - axis.min);
+      const statSpan = Math.max(1e-9, stat.max - stat.min);
+      const spanRatio = Math.max(axisSpan, statSpan) / Math.min(axisSpan, statSpan);
+      const overlaps = !(stat.max < axis.min || stat.min > axis.max);
+      const similarScale = (magRatio <= AXIS_MAG_RATIO_SPLIT) && (spanRatio <= AXIS_SPAN_RATIO_SPLIT);
+      if ((overlaps && similarScale) || (!overlaps && magRatio <= AXIS_MAG_RATIO_SPLIT)) {
+        target = axis;
+        break;
+      }
+    }
+    if (!target) axisDefs.push({ min: stat.min, max: stat.max, lpIds: [lpId] });
+    else {
+      target.min = Math.min(target.min, stat.min);
+      target.max = Math.max(target.max, stat.max);
+      target.lpIds.push(lpId);
+    }
+  }
+
+  if (!axisDefs.length && numSeries.length) {
+    const vals = numSeries.flatMap((s) => s.points.map((p) => p.value));
+    axisDefs.push({ min: Math.min(...vals), max: Math.max(...vals), lpIds: [] });
+  }
+
+  axisDefs.sort((a, b) => {
+    const ma = Math.max(Math.abs(a.min), Math.abs(a.max));
+    const mb = Math.max(Math.abs(b.min), Math.abs(b.max));
+    return mb - ma;
+  });
+
+  const axisByLp = new Map();
+  axisDefs.forEach((axis, axisIdx) => {
+    if (!(axis.max > axis.min)) {
+      const bump = Math.max(1, Math.abs(axis.max) * 0.02);
+      axis.min -= bump;
+      axis.max += bump;
+    }
+    axis.lpIds.forEach((lpId) => axisByLp.set(String(lpId), axisIdx));
+  });
+
+  const axisSpacing = 42;
+  const padL = 56 + Math.max(0, axisDefs.length - 1) * axisSpacing;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const dt = Math.max(1, maxTs - minTs);
+  const x = (ts) => padL + ((ts - minTs) / dt) * plotW;
+  const yNum = (v, lpId) => {
+    const idx = axisByLp.get(String(lpId)) || 0;
+    const axis = axisDefs[idx] || axisDefs[0] || { min: 0, max: 1 };
+    const dv = Math.max(1e-9, axis.max - axis.min);
+    return padT + (1 - ((v - axis.min) / dv)) * plotH;
+  };
+  const boolTrueY = padT + plotH * 0.50;
+  const boolFalseY = height - padB;
+  const yBool = (v) => (Number(v) >= 0.5 ? boolTrueY : boolFalseY);
+
+  let svg = `<svg viewBox="0 0 ${width} ${height}" class="trend-svg" aria-label="Trend">`;
+  svg += `<line x1="${padL}" y1="${height - padB}" x2="${width - padR}" y2="${height - padB}" stroke="#8fa0b8" stroke-width="1"/>`;
+  if (numSeries.length) {
+    for (let axisIdx = 0; axisIdx < axisDefs.length; axisIdx++) {
+      const axis = axisDefs[axisIdx];
+      const axisX = padL - axisIdx * axisSpacing;
+      svg += `<line x1="${axisX}" y1="${padT}" x2="${axisX}" y2="${height - padB}" stroke="#8fa0b8" stroke-width="1"/>`;
+      svg += `<text x="${axisX - 4}" y="${padT + 10}" text-anchor="end" font-size="11" fill="#516075">${esc(formatAxisValue(axis.max))}</text>`;
+      svg += `<text x="${axisX - 4}" y="${height - padB}" text-anchor="end" font-size="11" fill="#516075">${esc(formatAxisValue(axis.min))}</text>`;
+    }
+  }
+
+  for (let i = 0; i <= 4; i++) {
+    const yy = padT + (plotH / 4) * i;
+    svg += `<line x1="${padL}" y1="${yy}" x2="${width - padR}" y2="${yy}" stroke="#edf1f6" stroke-width="1"/>`;
+  }
+
+  function formatAxisValue(v) {
+    const av = Math.abs(v);
+    if (av >= 100000 || (av > 0 && av < 0.01)) return v.toExponential(2);
+    return v.toFixed(2);
+  }
+
+  const valueRows = [];
+  prepared.forEach((s, idx) => {
+    const ptsWindow = s.points.slice().sort((a, b) => a.ts - b.ts).filter((p) => p.ts >= minTs && p.ts <= maxTs);
+    if (!ptsWindow.length) return;
+    const pts = ptsWindow.slice();
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    if (first.ts > minTs) pts.unshift({ ts: minTs, value: first.value, display: first.display || '', isBoolean: first.isBoolean });
+    if (last.ts < maxTs) pts.push({ ts: maxTs, value: last.value, display: last.display || '', isBoolean: last.isBoolean });
+    if (pts.length === 1 && maxTs > minTs) {
+      pts.push({ ts: maxTs, value: pts[0].value, display: pts[0].display || '', isBoolean: pts[0].isBoolean });
+    }
+    if (pts.length < 2) return;
+
+    let d = '';
+    if (s.isBooleanSeries) {
+      d = `M ${x(pts[0].ts).toFixed(2)} ${yBool(pts[0].value).toFixed(2)}`;
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1];
+        const curr = pts[i];
+        d += ` L ${x(curr.ts).toFixed(2)} ${yBool(prev.value).toFixed(2)} L ${x(curr.ts).toFixed(2)} ${yBool(curr.value).toFixed(2)}`;
+      }
+    } else {
+      d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(p.ts).toFixed(2)} ${yNum(p.value, s.logpointId).toFixed(2)}`).join(' ');
+    }
+
+    const c = colors[idx % colors.length];
+    svg += `<path d="${d}" fill="none" stroke="${c}" stroke-width="2"/>`;
+
+    const latest = pts[pts.length - 1];
+    const minV = Math.min(...pts.map((p) => p.value));
+    const maxV = Math.max(...pts.map((p) => p.value));
+    valueRows.push({
+      name: s.name || `Logpoint ${s.logpointId}`,
+      color: c,
+      unit: s.unit || '',
+      isBooleanSeries: s.isBooleanSeries,
+      latest,
+      minV,
+      maxV
+    });
+  });
+
+  if (boolSeries.length) {
+    const axisX = width - padR;
+    svg += `<line x1="${axisX}" y1="${padT}" x2="${axisX}" y2="${height - padB}" stroke="#9aa9bf" stroke-width="1"/>`;
+    svg += `<line x1="${padL}" y1="${boolTrueY.toFixed(2)}" x2="${axisX}" y2="${boolTrueY.toFixed(2)}" stroke="#e6edf8" stroke-width="1" stroke-dasharray="4 3"/>`;
+    svg += `<line x1="${padL}" y1="${boolFalseY.toFixed(2)}" x2="${axisX}" y2="${boolFalseY.toFixed(2)}" stroke="#e6edf8" stroke-width="1" stroke-dasharray="4 3"/>`;
+    svg += `<text x="${axisX + 4}" y="${(boolTrueY + 4).toFixed(2)}" text-anchor="start" font-size="11" fill="#4f647f">1</text>`;
+    svg += `<text x="${axisX + 4}" y="${(boolFalseY + 4).toFixed(2)}" text-anchor="start" font-size="11" fill="#4f647f">0</text>`;
+    svg += `<text x="${axisX + 4}" y="${padT - 2}" text-anchor="start" font-size="10" fill="#4f647f">Bool</text>`;
+  }
+
+  const ticks = 6;
+  for (let i = 0; i <= ticks; i++) {
+    const r = i / ticks;
+    const xt = padL + r * plotW;
+    const ts = minTs + r * (maxTs - minTs);
+    const txt = new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const anchor = i === 0 ? 'start' : (i === ticks ? 'end' : 'middle');
+    svg += `<line x1="${xt.toFixed(2)}" y1="${height - padB}" x2="${xt.toFixed(2)}" y2="${height - padB + 4}" stroke="#8fa0b8" stroke-width="1"/>`;
+    svg += `<text x="${xt.toFixed(2)}" y="${height - 6}" text-anchor="${anchor}" font-size="10" fill="#516075">${esc(txt)}</text>`;
+  }
+
+  svg += `<text x="${padL}" y="${padT - 2}" font-size="10" fill="#516075">${esc(new Date(minTs).toLocaleString('de-DE'))}</text>`;
+  svg += `<text x="${width - padR}" y="${padT - 2}" text-anchor="end" font-size="10" fill="#516075">${esc(new Date(maxTs).toLocaleString('de-DE'))}</text>`;
+  svg += '</svg>';
+
+  const legend = `<div class="trend-legend">${prepared.map((s, i) => `<span class="legend-item"><span class="sw" style="background:${colors[i % colors.length]}"></span>${esc(s.name || `Logpoint ${s.logpointId}`)}</span>`).join('')}</div>`;
+
+  const fmtNum = (v) => {
+    if (!Number.isFinite(Number(v))) return '-';
+    const n = Number(v);
+    const av = Math.abs(n);
+    if (av >= 100000 || (av > 0 && av < 0.01)) return n.toExponential(2);
+    return n.toFixed(2);
+  };
+  const valueTable = valueRows.length
+    ? `<div class="trend-values"><table><thead><tr><th>Logpoint</th><th>Aktuell</th><th>Min</th><th>Max</th><th>Zeit</th></tr></thead><tbody>${valueRows.map((row) => {
+      const latestTxt = row.isBooleanSeries
+        ? (Number(row.latest.value) >= 0.5 ? 'true' : 'false')
+        : `${fmtNum(row.latest.value)}${row.unit ? (' ' + row.unit) : ''}`;
+      const minTxt = row.isBooleanSeries ? '-' : `${fmtNum(row.minV)}${row.unit ? (' ' + row.unit) : ''}`;
+      const maxTxt = row.isBooleanSeries ? '-' : `${fmtNum(row.maxV)}${row.unit ? (' ' + row.unit) : ''}`;
+      const tsTxt = new Date(row.latest.ts).toLocaleString('de-DE');
+      return `<tr><td><span class="sw" style="background:${row.color}"></span> ${esc(row.name)}</td><td>${esc(latestTxt)}</td><td>${esc(minTxt)}</td><td>${esc(maxTxt)}</td><td>${esc(tsTxt)}</td></tr>`;
+    }).join('')}</tbody></table></div>`
+    : '';
+
+  return `<div class="trend-wrap">${svg}${legend}${valueTable}</div>`;
+}
+
+function renderPreview(payload) {
+  if (!payload || typeof payload !== 'object') {
+    previewBox.textContent = 'Keine Vorschau verfügbar.';
+    return;
+  }
+
+  const d = payload.disturbance || {};
+  const c = payload.cause || {};
+  const rel = Array.isArray(payload.relatedValues) ? payload.relatedValues : [];
+  const hints = Array.isArray(payload.hints)
+    ? payload.hints
+    : (Array.isArray(payload.suggestions) ? payload.suggestions : []);
+  const trend = payload.trend || {};
+
+  const relHtml = rel.length
+    ? rel.map((it) => {
+        const tsTxt = it.ts ? new Date(Number(it.ts)).toLocaleString('de-DE') : '-';
+        const valTxt = (it.value === null || it.value === undefined || it.value === '')
+          ? '-'
+          : `${it.value}${it.unit ? (' ' + it.unit) : ''}`;
+        return `<li>${esc(it.name || `Logpoint ${it.logpointId}`)}: <strong>${esc(valTxt)}</strong> <span class="muted-small">(${esc(tsTxt)})</span></li>`;
+      }).join('')
+    : '<li>Keine zugeordneten Logpoints.</li>';
+
+  const hintsHtml = hints.length
+    ? hints.map((h) => `<li>${esc(h)}</li>`).join('')
+    : '<li>Keine Hinweise hinterlegt.</li>';
+
+  const fallbackTo = Number(d.triggerTs) || null;
+  const fallbackFrom = fallbackTo ? (fallbackTo - Math.max(60_000, Number(c.activationDelayMs || 0), 10 * 60_000)) : null;
+  const fromTs = Number(trend.fromTs) || fallbackFrom;
+  const toTs = Number(trend.toTs) || fallbackTo;
+  const fromTxt = fromTs ? new Date(fromTs).toLocaleString('de-DE') : '-';
+  const toTxt = toTs ? new Date(toTs).toLocaleString('de-DE') : '-';
+
+  previewBox.innerHTML = `
+    <div class="protocol-head">
+      <h4 class="protocol-title">Ereignisprotokoll</h4>
+      <span class="muted-small">Version ${esc(payload.protocolVersion || 1)}</span>
+    </div>
+
+    <div class="protocol-grid">
+      <div><span class="protocol-label">Ereignis:</span> ${esc(d.name || '-')}</div>
+      <div><span class="protocol-label">Logpoint-ID:</span> ${esc(d.logpointId || '-')}</div>
+      <div><span class="protocol-label">Zeitpunkt:</span> ${esc(d.triggerLocal || '-')}</div>
+      <div><span class="protocol-label">Auslösewert:</span> ${esc(d.triggerValue || '-')}</div>
+      <div><span class="protocol-label">Verbindung:</span> ${esc(d.connectionId || '-')}</div>
+      <div><span class="protocol-label">Datentyp:</span> ${esc(d.dataType || '-')}</div>
+    </div>
+
+    <div class="protocol-block">
+      <h4>Ereignisursache</h4>
+      <div>${esc(c.text || '-')}</div>
+    </div>
+
+    <div class="protocol-block">
+      <h4>Zugeordnete Logpoints (Aktualwerte)</h4>
+      <ul style="margin:.3rem 0 .1rem 1.2rem; padding:0;">${relHtml}</ul>
+    </div>
+
+    <div class="protocol-block">
+      <h4>Hinweise</h4>
+      <ul style="margin:.3rem 0 .1rem 1.2rem; padding:0;">${hintsHtml}</ul>
+    </div>
+
+    <div class="protocol-block">
+      <h4>Trend vor Ereigniseintritt</h4>
+      <div class="muted-small">Zeitraum: ${esc(fromTxt)} bis ${esc(toTxt)}</div>
+      ${buildTrendSvg(trend)}
+    </div>
+  `;
+}
+
+async function fetchPreview() {
+  if (currentRoleLevel === 2) return;
+  const entry = findCurrentEntry();
+  if (!entry) return;
+  const payload = buildRulePayloadFromUi();
+  if (!payload) return;
+
+  const saveRes = await fetch(api(`/disturbances/rules/${entry.logpoint.id}`), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const saveJson = await saveRes.json();
+  if (!saveRes.ok) throw new Error(saveJson.error || ('HTTP ' + saveRes.status));
+
+  const prevRes = await fetch(api(`/disturbances/rules/${entry.logpoint.id}/preview`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  });
+  const prevJson = await prevRes.json();
+  if (!prevRes.ok) throw new Error(prevJson.error || ('HTTP ' + prevRes.status));
+
+  renderPreview(prevJson);
+}
+
+async function saveCurrentRule(ev) {
+  ev.preventDefault();
+  const entry = findCurrentEntry();
+  if (!entry) return;
+
+  const payload = buildRulePayloadFromUi();
+  if (!payload) return;
+
+  saveMsg.textContent = 'Speichern…';
+  const res = await fetch(api(`/disturbances/rules/${entry.logpoint.id}`), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    saveMsg.textContent = `Fehler: ${json.error || ('HTTP ' + res.status)}`;
+    return;
+  }
+
+  saveMsg.textContent = 'Gespeichert.';
+  await loadRules();
+  await loadEvents();
+}
+
+function statusBadge(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'resolved') return '<span class="badge">Beendet</span>';
+  return '<span class="badge on">Aktiv</span>';
+}
+
+async function loadEvents() {
+  const status = String(eventsStatusFilter.value || '');
+  const limit = Math.max(1, Math.min(500, Number(eventsLimit.value) || 200));
+
+  const url = new URL(api('/disturbances/events'), window.location.origin);
+  url.searchParams.set('limit', String(limit));
+  if (status) url.searchParams.set('status', status);
+
+  const res = await fetch(url.toString());
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || ('HTTP ' + res.status));
+
+  const rows = Array.isArray(json) ? json : [];
+  if (!rows.length) {
+    eventsTbody.innerHTML = '<tr><td colspan="5" class="muted-small">Noch keine Protokolle vorhanden.</td></tr>';
+    return;
+  }
+
+  eventsTbody.innerHTML = rows.map((r) => {
+    const p = r.protocol || {};
+    const d = p.disturbance || {};
+    const name = d.name || `Ereignis ${r.logpointId}`;
+    const tsTxt = r.triggeredTs ? new Date(Number(r.triggeredTs)).toLocaleString('de-DE') : '-';
+    return `
+      <tr>
+        <td>${r.id}</td>
+        <td>${statusBadge(r.status)}</td>
+        <td>${esc(name)}</td>
+        <td>${esc(tsTxt)}</td>
+        <td>
+          <button class="btn small ev-open" data-event-id="${r.id}" type="button">Anzeigen</button>
+          <button class="btn small ev-pdf" data-event-id="${r.id}" type="button">PDF</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  eventsTbody.querySelectorAll('.ev-open').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const eventId = Number(btn.getAttribute('data-event-id'));
+      try {
+        const resEv = await fetch(api(`/disturbances/events/${eventId}`));
+        const ev = await resEv.json();
+        if (!resEv.ok) throw new Error(ev.error || ('HTTP ' + resEv.status));
+        renderPreview(ev.protocol || null);
+      } catch (err) {
+        previewBox.innerHTML = `<div class="muted-small">Fehler beim Laden: ${esc(err.message || err)}</div>`;
+      }
+    });
+  });
+
+  eventsTbody.querySelectorAll('.ev-pdf').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const eventId = Number(btn.getAttribute('data-event-id'));
+      window.open(api(`/disturbances/events/${eventId}/pdf`), '_blank');
+    });
+  });
+}
+
+ruleForm.addEventListener('submit', (ev) => {
+  saveCurrentRule(ev).catch((err) => {
+    saveMsg.textContent = `Fehler: ${err.message || err}`;
+  });
+});
+
+document.getElementById('previewBtn').addEventListener('click', () => {
+  fetchPreview().catch((err) => {
+    previewBox.innerHTML = `<div class="muted-small">Fehler bei Vorschau: ${esc(err.message || err)}</div>`;
+  });
+});
+
+refreshEventsBtn.addEventListener('click', () => {
+  loadEvents().catch((err) => {
+    eventsTbody.innerHTML = `<tr><td colspan="5" class="muted-small">Fehler: ${esc(err.message || err)}</td></tr>`;
+  });
+});
+
+eventsStatusFilter.addEventListener('change', () => {
+  loadEvents().catch((err) => {
+    eventsTbody.innerHTML = `<tr><td colspan="5" class="muted-small">Fehler: ${esc(err.message || err)}</td></tr>`;
+  });
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await initRoleUi();
+    await loadRules();
+    await loadEvents();
+    if (selectedLogpointId && currentRoleLevel !== 2) {
+      await fetchPreview();
+    }
+  } catch (err) {
+    rulesCountInfoEl.textContent = `Fehler: ${err.message || err}`;
+    eventsTbody.innerHTML = `<tr><td colspan="5" class="muted-small">Fehler: ${esc(err.message || err)}</td></tr>`;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 /**
- * Minimaler Express-Router für OPC UA Verbindungs-Konfigurationen
+ * Minimaler Express-Router fï¿½r OPC UA Verbindungs-Konfigurationen
  * - CRUD: GET/POST/PUT/DELETE /api/opcua/connections
  * - Discovery: POST /api/opcua/discover  { endpoint }
  * - Trust: POST /api/opcua/trust { serverCertificateBase64, name }
@@ -7,12 +7,13 @@
  * Hinweise:
  * - Speichert configs in ../config/opcua-connections.json
  * - Legt trusted server-certs als PEM in /var/lib/process-logger/pki/trusted/certs an
- * - Logger-Service (user 'logger') muss Leserechte für config und Schreibrechte für PKI-Ordner haben
+ * - Logger-Service (user 'logger') muss Leserechte fï¿½r config und Schreibrechte fï¿½r PKI-Ordner haben
  */
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const { OPCUAClient } = require('node-opcua');
+const auth = require('./auth');
 
 const router = express.Router();
 
@@ -45,7 +46,7 @@ async function writeConfig(cfg) {
 }
 
 // List all connections
-router.get('/connections', async (req, res) => {
+router.get('/connections', auth.requireRole('Trend'), async (req, res) => {
   try {
     const cfg = await readConfig();
     res.json(cfg.connections || []);
@@ -55,7 +56,7 @@ router.get('/connections', async (req, res) => {
 });
 
 // Create a connection
-router.post('/connections', async (req, res) => {
+router.post('/connections', auth.requireRole('Administrator'), async (req, res) => {
   try {
     const body = req.body || {};
     // einfache Validierung
@@ -82,7 +83,7 @@ router.post('/connections', async (req, res) => {
 });
 
 // Update connection
-router.put('/connections/:id', async (req, res) => {
+router.put('/connections/:id', auth.requireRole('Administrator'), async (req, res) => {
   try {
     const id = req.params.id;
     const cfg = await readConfig();
@@ -97,7 +98,7 @@ router.put('/connections/:id', async (req, res) => {
 });
 
 // Delete connection
-router.delete('/connections/:id', async (req, res) => {
+router.delete('/connections/:id', auth.requireRole('Administrator'), async (req, res) => {
   try {
     const id = req.params.id;
     const cfg = await readConfig();
@@ -114,7 +115,7 @@ router.delete('/connections/:id', async (req, res) => {
  * Body: { endpoint: 'opc.tcp://192.168.0.50:4840' }
  * Returns: endpoints array (serverCertificate base64 included if present)
  */
-router.post('/discover', async (req, res) => {
+router.post('/discover', auth.requireRole('Administrator'), async (req, res) => {
   const { endpoint } = req.body || {};
   if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
 
@@ -144,7 +145,7 @@ router.post('/discover', async (req, res) => {
  * Body: { serverCertificateBase64: '...', name: 'sps-floor1-1.pem' }
  * Writes PEM file into PKI_TRUSTED
  */
-router.post('/trust', async (req, res) => {
+router.post('/trust', auth.requireRole('Administrator'), async (req, res) => {
   const { serverCertificateBase64, name } = req.body || {};
   if (!serverCertificateBase64) return res.status(400).json({ error: 'serverCertificateBase64 required' });
   const fname = name && typeof name === 'string' ? name : `server-${Date.now()}.pem`;

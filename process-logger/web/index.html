@@ -10,7 +10,95 @@
   <style>
     #app-header { display:flex; gap:12px; align-items:center; }
     #loader { display:none; margin-left:8px; font-size:0.9rem; color:var(--text-muted); }
-    .content-hidden { visibility:hidden; }
+    .role-protected { display:none; }
+    .dashboard-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+      gap:.8rem;
+      margin-top:.8rem;
+    }
+    .metric-card {
+      border:1px solid #dfe6f2;
+      border-radius:8px;
+      background:#fff;
+      padding:.7rem .8rem;
+    }
+    .metric-label { font-size:.85rem; color:var(--text-muted); margin-bottom:.2rem; }
+    .metric-value { font-size:1.15rem; font-weight:700; color:#1f2f46; }
+    .metric-sub { margin-top:.2rem; font-size:.85rem; color:#4c607f; }
+    .bar {
+      height:10px;
+      border-radius:999px;
+      background:#edf2fa;
+      overflow:hidden;
+      margin-top:.45rem;
+    }
+    .bar > span {
+      display:block;
+      height:100%;
+      width:0;
+      background:linear-gradient(90deg, #2b6fb3, #4e9bdd);
+      transition:width .25s ease;
+    }
+    .bar.warn > span { background:linear-gradient(90deg, #c07a00, #d99a20); }
+    .bar.danger > span { background:linear-gradient(90deg, #b42318, #d8473e); }
+    .section-title { margin:.1rem 0 .5rem 0; font-size:1rem; }
+    .status-row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-top:.5rem; }
+    .pill {
+      border:1px solid #d5dce9;
+      border-radius:999px;
+      padding:.15rem .5rem;
+      font-size:.8rem;
+      color:#2d3f5a;
+      background:#f8faff;
+    }
+    .sys-grid {
+      display:grid;
+      gap:.7rem;
+      grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
+      margin-top:.6rem;
+    }
+    .sys-card {
+      border:1px solid #dfe6f2;
+      border-radius:8px;
+      background:#fff;
+      padding:.65rem .75rem;
+    }
+    .sys-label { font-size:.82rem; color:var(--text-muted); }
+    .sys-value { font-size:1.05rem; font-weight:700; color:#1f2f46; margin-top:.1rem; }
+    .table-scroll {
+      overflow:auto;
+      border:1px solid #e4e9f3;
+      border-radius:8px;
+      margin-top:.45rem;
+    }
+    .table-scroll table {
+      width:100%;
+      border-collapse:collapse;
+      min-width:760px;
+    }
+    .table-scroll th,
+    .table-scroll td {
+      border-bottom:1px solid #edf2fa;
+      padding:.42rem .5rem;
+      font-size:.86rem;
+      text-align:left;
+    }
+    .table-scroll th { color:#324864; background:#f8fbff; }
+    .status-chip {
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:.1rem .45rem;
+      font-size:.78rem;
+      font-weight:600;
+      border:1px solid transparent;
+    }
+    .status-chip.online { color:#146534; background:#dcfce7; border-color:#86efac; }
+    .status-chip.reconnecting { color:#92400e; background:#fef3c7; border-color:#fcd34d; }
+    .status-chip.offline { color:#991b1b; background:#fee2e2; border-color:#fca5a5; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .error-text { color:#a02217; }
   </style>
 </head>
 <body>
@@ -24,12 +112,420 @@
       </div>
 
       <div id="app-content" class="content">
-        <div class="panel">
-          <h2>Willkommen</h2>
-          <p class="muted">Bitte wähle einen Menüpunkt links. Das System ist in Entwicklung — Änderungen können folgen.</p>
+        <div id="storagePanel" class="panel role-protected">
+          <div style="display:flex;align-items:center;gap:.6rem;justify-content:space-between;flex-wrap:wrap;">
+            <h2 class="section-title">Speicherübersicht</h2>
+            <div style="display:flex;gap:.45rem;align-items:center;">
+              <button id="refreshStorageBtn" class="btn">Aktualisieren</button>
+              <span id="lastUpdateText" class="muted" style="font-size:.85rem;">Noch keine Daten geladen.</span>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="metric-card">
+              <div class="metric-label">Gesamtspeicher (System)</div>
+              <div id="fsTotal" class="metric-value">-</div>
+              <div id="fsUsedSub" class="metric-sub">Belegt: - | Frei: -</div>
+              <div id="fsBar" class="bar"><span></span></div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Prozessdaten genutzt</div>
+              <div id="procUsed" class="metric-value">-</div>
+              <div id="procAllowedSub" class="metric-sub">Erlaubt: -</div>
+              <div id="procBar" class="bar"><span></span></div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Nutzung bis Löschschwelle</div>
+              <div id="triggerValue" class="metric-value">-</div>
+              <div id="triggerSub" class="metric-sub">-</div>
+              <div id="triggerBar" class="bar"><span></span></div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Dauer bis zur nächsten Datenlöschung</div>
+              <div id="etaValue" class="metric-value">-</div>
+              <div id="etaSub" class="metric-sub">Löschumfang: -</div>
+            </div>
+          </div>
+
+          <div class="status-row" id="deletionMetaRow" style="margin-top:.8rem;">
+            <span id="deletionReason" class="pill">Status: -</span>
+            <span id="rowsDeleted" class="pill">Gelöschte Zeilen: -</span>
+            <span id="filesDeleted" class="pill">Entfernte DB-Dateien: -</span>
+            <span id="bytesFreed" class="pill">Freigewordener Speicher: -</span>
+          </div>
+
+          <div id="deletedChunksWrap" style="margin-top:.7rem; display:none;">
+            <div class="metric-label">Zuletzt entfernte Zeitblöcke</div>
+            <div id="deletedChunks" class="mono" style="font-size:.82rem; color:#324864;"></div>
+          </div>
+
+          <p id="storageError" class="error-text" style="display:none; margin-top:.75rem;"></p>
+        </div>
+
+        <div id="systemOverviewPanel" class="panel role-protected">
+          <div style="display:flex;align-items:center;gap:.6rem;justify-content:space-between;flex-wrap:wrap;">
+            <h2 class="section-title">Aktuelle Systeminformationen</h2>
+            <div style="display:flex;gap:.45rem;align-items:center;">
+              <button id="refreshOverviewBtn" class="btn">Aktualisieren</button>
+              <span id="overviewUpdateText" class="muted" style="font-size:.85rem;">Noch keine Daten geladen.</span>
+            </div>
+          </div>
+
+          <div id="systemKpis" class="sys-grid"></div>
+
+          <h3 class="section-title" style="margin-top:.9rem;">Verbindungen</h3>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Logpoints</th>
+                  <th>Aktiv überwacht (Subscribed)</th>
+                  <th>Datenpunkte</th>
+                  <th>Endpoint</th>
+                </tr>
+              </thead>
+              <tbody id="connectionsBody">
+                <tr><td colspan="6" class="muted">Keine Daten.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="section-title" style="margin-top:.9rem;">Aktuelle Ereignisprotokolle</h3>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Zeit</th>
+                  <th>Status</th>
+                  <th>Ereignis</th>
+                  <th>Logpoint</th>
+                </tr>
+              </thead>
+              <tbody id="eventsBody">
+                <tr><td colspan="4" class="muted">Keine Daten.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p id="overviewError" class="error-text" style="display:none; margin-top:.75rem;"></p>
         </div>
       </div>
     </main>
   </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function clampPercent(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(100, n));
+    }
+
+    function formatBytes(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0) return '-';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      let x = n;
+      let idx = 0;
+      while (x >= 1024 && idx < units.length - 1) {
+        x /= 1024;
+        idx += 1;
+      }
+      const frac = x >= 100 ? 0 : (x >= 10 ? 1 : 2);
+      return `${x.toFixed(frac)} ${units[idx]}`;
+    }
+
+    function formatDuration(ms) {
+      const n = Number(ms);
+      if (!Number.isFinite(n)) return 'Nicht bestimmbar';
+      if (n <= 0) return 'Sofort';
+      const totalSec = Math.ceil(n / 1000);
+      const y = Math.floor(totalSec / (365 * 86400));
+      const yRem = totalSec % (365 * 86400);
+      const yd = Math.floor(yRem / 86400);
+      const yh = Math.floor((yRem % 86400) / 3600);
+      const d = Math.floor(totalSec / 86400);
+      const h = Math.floor((totalSec % 86400) / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (y > 0) return `${y}J ${yd}d ${yh}h`;
+      if (d > 0) return `${d}d ${h}h ${m}m`;
+      if (h > 0) return `${h}h ${m}m ${s}s`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    function highestRoleLevel(roles) {
+      const levels = { Trend: 1, Beobachten: 2, Bediener: 3, Administrator: 4, Systemadministrator: 5 };
+      let max = 0;
+      const list = Array.isArray(roles) ? roles : [];
+      for (const role of list) {
+        const lvl = Number(levels[String(role)] || 0);
+        if (lvl > max) max = lvl;
+      }
+      return max;
+    }
+
+    function setProgressBar(barEl, percent) {
+      if (!barEl) return;
+      const p = clampPercent(percent);
+      const fill = barEl.querySelector('span');
+      if (fill) fill.style.width = `${p}%`;
+      barEl.classList.remove('warn', 'danger');
+      if (p >= 95) barEl.classList.add('danger');
+      else if (p >= 80) barEl.classList.add('warn');
+    }
+
+    function clearError() {
+      const e = $('storageError');
+      if (!e) return;
+      e.style.display = 'none';
+      e.textContent = '';
+    }
+
+    function showError(msg) {
+      const e = $('storageError');
+      if (!e) return;
+      e.style.display = 'block';
+      e.textContent = msg;
+    }
+
+    function clearOverviewError() {
+      const e = $('overviewError');
+      if (!e) return;
+      e.style.display = 'none';
+      e.textContent = '';
+    }
+
+    function showOverviewError(msg) {
+      const e = $('overviewError');
+      if (!e) return;
+      e.style.display = 'block';
+      e.textContent = msg;
+    }
+
+    function escHtml(v) {
+      return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatNum(n) {
+      const num = Number(n);
+      if (!Number.isFinite(num)) return '-';
+      return num.toLocaleString('de-DE');
+    }
+
+    function statusClassName(statusRaw) {
+      const s = String(statusRaw || '').toLowerCase();
+      if (s === 'online') return { label: 'Online', cls: 'online' };
+      if (s === 'reconnecting') return { label: 'Reconnect', cls: 'reconnecting' };
+      return { label: 'Offline', cls: 'offline' };
+    }
+
+    function applyStatus(data) {
+      const fs = data && data.filesystem ? data.filesystem : {};
+      const pd = data && data.processData ? data.processData : {};
+      const del = data && data.deletion ? data.deletion : {};
+
+      const fsUsedPct = clampPercent(fs.usedPercent);
+      const pdUsagePct = clampPercent(pd.usagePercentOfAllowance);
+      const triggerUsagePct = (Number(pd.deleteTriggerBytes) > 0)
+        ? clampPercent((Number(pd.bytes || 0) / Number(pd.deleteTriggerBytes)) * 100)
+        : 0;
+
+      $('fsTotal').textContent = formatBytes(fs.totalBytes);
+      $('fsUsedSub').textContent = `Belegt: ${formatBytes(fs.usedBytes)} | Frei: ${formatBytes(fs.freeBytes)}`;
+      setProgressBar($('fsBar'), fsUsedPct);
+
+      $('procUsed').textContent = `${formatBytes(pd.bytes)} (${pdUsagePct.toFixed(1)}%)`;
+      $('procAllowedSub').textContent = `Erlaubt: ${formatBytes(pd.allowedBytes)} (${Number(pd.capacityPercent || 0).toFixed(1)}% vom Systemspeicher)`;
+      setProgressBar($('procBar'), pdUsagePct);
+
+      $('triggerValue').textContent = `${triggerUsagePct.toFixed(1)}%`;
+      $('triggerSub').textContent = `${formatBytes(pd.bytes)} von ${formatBytes(pd.deleteTriggerBytes)} (Schwelle bei ${Number(pd.deleteTriggerPercent || 0).toFixed(1)}%)`;
+      setProgressBar($('triggerBar'), triggerUsagePct);
+
+      $('etaValue').textContent = formatDuration(pd.estimatedMsUntilDelete);
+      $('etaSub').textContent = `Löschumfang: ${String(pd.deleteGranularity || '-').toUpperCase()}`;
+
+      $('deletionReason').textContent = `Status: ${String(del.reason || 'unbekannt')}`;
+      $('rowsDeleted').textContent = `Gelöschte Zeilen: ${Number(del.rowsDeleted || 0)}`;
+      $('filesDeleted').textContent = `Entfernte DB-Dateien: ${Number(del.filesDeleted || 0)}`;
+      $('bytesFreed').textContent = `Freigewordener Speicher: ${formatBytes(del.bytesFreed || 0)}`;
+
+      const chunks = Array.isArray(del.deletedChunks) ? del.deletedChunks : [];
+      const wrap = $('deletedChunksWrap');
+      const out = $('deletedChunks');
+      if (chunks.length) {
+        wrap.style.display = 'block';
+        out.textContent = chunks.join(' | ');
+      } else {
+        wrap.style.display = 'none';
+        out.textContent = '';
+      }
+
+      const ts = Number(data && data.timestamp);
+      const updateText = Number.isFinite(ts)
+        ? `Letzte Aktualisierung: ${new Date(ts).toLocaleString('de-DE')}`
+        : 'Letzte Aktualisierung: unbekannt';
+      $('lastUpdateText').textContent = updateText;
+    }
+
+    function renderSystemOverview(data) {
+      const totals = data && data.totals ? data.totals : {};
+      const storage = data && data.storage ? data.storage : {};
+      const processData = storage && storage.processData ? storage.processData : {};
+
+      const kpis = [
+        { label: 'Verbindungen', value: formatNum(totals.connections) },
+        { label: 'Aktive Verbindungen', value: formatNum(totals.activeConnections) },
+        { label: 'Logpoints gesamt', value: formatNum(totals.logpoints) },
+        { label: 'Datenpunkte gesamt', value: formatNum(totals.datapoints) },
+        { label: 'Prozessdaten Größe', value: formatBytes(processData.bytes) },
+        { label: 'Server Uptime', value: formatDuration((Number(data && data.uptimeSeconds) || 0) * 1000) }
+      ];
+      const kpiHost = $('systemKpis');
+      kpiHost.innerHTML = kpis.map((k) => (
+        `<div class="sys-card"><div class="sys-label">${escHtml(k.label)}</div><div class="sys-value">${escHtml(k.value)}</div></div>`
+      )).join('');
+
+      const conns = Array.isArray(data && data.connections) ? data.connections : [];
+      const connsBody = $('connectionsBody');
+      if (!conns.length) {
+        connsBody.innerHTML = '<tr><td colspan="6" class="muted">Keine Verbindungen konfiguriert.</td></tr>';
+      } else {
+        connsBody.innerHTML = conns.map((c) => {
+          const st = statusClassName(c.status);
+          return `<tr>
+            <td>${escHtml(c.name || c.id || '-')}</td>
+            <td><span class="status-chip ${st.cls}">${escHtml(st.label)}</span></td>
+            <td>${escHtml(formatNum(c.logpointCount))}</td>
+            <td>${escHtml(formatNum(c.monitoredLogpoints))}</td>
+            <td>${escHtml(formatNum(c.datapointsCount))}</td>
+            <td class="mono">${escHtml(c.endpoint || '-')}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      const events = Array.isArray(data && data.recentEvents) ? data.recentEvents : [];
+      const eventsBody = $('eventsBody');
+      if (!events.length) {
+        eventsBody.innerHTML = '<tr><td colspan="4" class="muted">Keine Ereignisprotokolle vorhanden.</td></tr>';
+      } else {
+        eventsBody.innerHTML = events.map((ev) => {
+          const ts = Number(ev && ev.triggeredTs);
+          const protocol = (ev && ev.protocol && typeof ev.protocol === 'object') ? ev.protocol : {};
+          const disturbance = (protocol.disturbance && typeof protocol.disturbance === 'object') ? protocol.disturbance : {};
+          return `<tr>
+            <td>${escHtml(Number.isFinite(ts) ? new Date(ts).toLocaleString('de-DE') : '-')}</td>
+            <td>${escHtml(ev && ev.status ? ev.status : '-')}</td>
+            <td>${escHtml(disturbance.name || '-')}</td>
+            <td>${escHtml(String((ev && ev.logpointId) || '-'))}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      const ts = Number(data && data.timestamp);
+      $('overviewUpdateText').textContent = Number.isFinite(ts)
+        ? `Letzte Aktualisierung: ${new Date(ts).toLocaleString('de-DE')}`
+        : 'Letzte Aktualisierung: unbekannt';
+    }
+
+    async function fetchStorageStatus(forceRefresh) {
+      const loader = $('loader');
+      loader.style.display = 'block';
+      clearError();
+      try {
+        const url = forceRefresh ? '/api/storage-status/refresh' : '/api/storage-status';
+        const method = forceRefresh ? 'POST' : 'GET';
+        const res = await fetch(url, { method, cache: 'no-store', credentials: 'same-origin' });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = (json && json.error) ? json.error : `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+        if (!json || json.error) {
+          throw new Error((json && json.error) || 'Keine gültigen Statusdaten erhalten');
+        }
+        applyStatus(json);
+      } catch (err) {
+        showError(`Speicherstatus konnte nicht geladen werden: ${String((err && err.message) || err)}`);
+      } finally {
+        loader.style.display = 'none';
+      }
+    }
+
+    async function fetchSystemOverview() {
+      clearOverviewError();
+      try {
+        const res = await fetch('/api/system-overview', { method: 'GET', cache: 'no-store', credentials: 'same-origin' });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = (json && json.error) ? json.error : `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+        if (!json || json.ok === false) {
+          throw new Error((json && json.error) || 'Keine gültigen Übersichtsdaten erhalten');
+        }
+        renderSystemOverview(json);
+      } catch (err) {
+        showOverviewError(`Systemübersicht konnte nicht geladen werden: ${String((err && err.message) || err)}`);
+      }
+    }
+
+    async function ensureObserveRoleVisibility() {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json().catch(() => null);
+        const roles = data && data.user && Array.isArray(data.user.roles) ? data.user.roles : [];
+        if (highestRoleLevel(roles) >= 2) {
+          $('storagePanel').classList.remove('role-protected');
+          $('systemOverviewPanel').classList.remove('role-protected');
+          return true;
+        }
+      } catch (_) {
+        // Fall through to hidden state when auth lookup fails.
+      }
+
+      $('storagePanel').classList.add('role-protected');
+      $('systemOverviewPanel').classList.add('role-protected');
+      const loader = $('loader');
+      if (loader) loader.style.display = 'none';
+      return false;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const storageBtn = $('refreshStorageBtn');
+      const overviewBtn = $('refreshOverviewBtn');
+      ensureObserveRoleVisibility().then((allowed) => {
+        if (!allowed) return;
+        if (storageBtn) {
+          storageBtn.addEventListener('click', () => fetchStorageStatus(true));
+        }
+        if (overviewBtn) {
+          overviewBtn.addEventListener('click', () => fetchSystemOverview());
+        }
+
+        fetchStorageStatus(false);
+        fetchSystemOverview();
+
+        setInterval(() => {
+          fetchStorageStatus(false);
+          fetchSystemOverview();
+        }, 30000);
+      });
+    });
+  </script>
 </body>
 </html>

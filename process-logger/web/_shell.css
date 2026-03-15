@@ -60,6 +60,11 @@ html,body{
   width:100%;
 }
 
+/* Avoid a short flash of unauthorized menu items before auth/role filtering finishes. */
+.side-nav:not(.nav-ready) .nav-list {
+  visibility: hidden;
+}
+
 /* base link */
 .side-nav .nav-list a,
 .side-nav .nav-list a:visited {
@@ -150,9 +155,15 @@ html,body{
   line-height:36px;
   font-size:0.95rem;
   transition:all .12s ease;
+  white-space:nowrap;
 }
 .btn:hover { transform: translateY(-1px); }
 .btn--primary { background:var(--accent); color:var(--accent-contrast); border-color:var(--accent); }
+.btn.small {
+  height:auto;
+  line-height:1.2;
+  padding:6px 10px;
+}
 
 /* utility layout */
 .row { display:flex; gap:.5rem; align-items:center; }

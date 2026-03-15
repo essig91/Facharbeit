@@ -11,6 +11,7 @@
 const express = require('express');
 const router = express.Router();
 const { spawn } = require('child_process');
+const auth = require('../server/auth');
 
 function runNodeScript(scriptPath, args = [], timeoutMs = 20000) {
   return new Promise((resolve) => {
@@ -38,7 +39,7 @@ function runNodeScript(scriptPath, args = [], timeoutMs = 20000) {
   });
 }
 
-router.post('/test', async (req, res) => {
+router.post('/test', auth.requireRole('Administrator'), async (req, res) => {
   const { endpoint, username, password, securityPolicy } = req.body || {};
 
   if (!endpoint) {
